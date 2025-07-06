@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "main": "signaling-server-v3.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node signaling-server-v3.js"
   },
-  "author": "",
+  "author": "Ramy Gouiaa",
   "license": "ISC",
-  "description": "",
+  "description": "A secure, real-time chat application with end-to-end encrypted video and voice calls.",
   "dependencies": {
     "ws": "^8.18.3"
   }
