@@ -8,3 +8,12 @@ yarn-error.log*
 
 # macOS
 .DS_Store
+
+# Old files
+secure-chat-enhanced.html
+secure-chat-full-messaging.html
+secure-chat-prototype.html
+secure-chat-prototype1.html
+signaling-server-v1.js
+signaling-server-v2.js
+secure-chat-v3 copy.html
