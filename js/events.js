@@ -18,6 +18,16 @@ messageInput.addEventListener("keypress", (e) => {
   }
 });
 
+messageInput.addEventListener("input", () => {
+  if (messageInput.value.trim().length > 0) {
+    sendBtn.classList.remove("hidden");
+    recordBtn.classList.add("hidden");
+  } else {
+    sendBtn.classList.add("hidden");
+    recordBtn.classList.remove("hidden");
+  }
+});
+
 async function sendMessage() {
   const text = messageInput.value.trim();
   if (!text || !dataChannel || dataChannel.readyState !== "open") return;
@@ -32,6 +42,8 @@ async function sendMessage() {
   dataChannel.send(encryptedMessage);
   renderMessages();
   messageInput.value = "";
+  sendBtn.classList.add("hidden");
+  recordBtn.classList.remove("hidden");
 }
 
 function handleTyping() {
@@ -90,7 +102,7 @@ async function handleFileSelect(event) {
 async function toggleRecording() {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.stop();
-    recordBtn.textContent = "Record";
+    recordBtn.innerHTML = '<i class="fas fa-microphone"></i>';
   } else {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -120,6 +132,6 @@ async function toggleRecording() {
       dataChannel.send(encryptedVoiceMessage);
     };
     mediaRecorder.start();
-    recordBtn.textContent = "Stop";
+    recordBtn.innerHTML = '<i class="fas fa-stop"></i>';
   }
 }
