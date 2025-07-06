@@ -1,19 +1,27 @@
 function createConnection() {
   const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "stun:stun.relay.metered.ca:80",
     },
     {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:global.relay.metered.ca:80",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:80?transport=tcp",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:443",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turns:global.relay.metered.ca:443?transport=tcp",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
     },
   ];
 
@@ -84,20 +92,28 @@ async function handleOffer(offer, fromId, publicKey) {
   chatWith.textContent = "Chatting with: " + currentTargetName;
 
   const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "stun:stun.relay.metered.ca:80",
     },
     {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:global.relay.metered.ca:80",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:80?transport=tcp",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:443",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
+    },
+    {
+      urls: "turns:global.relay.metered.ca:443?transport=tcp",
+      username: "64a842e9e0257e8c336c930b",
+      credential: "kC6B4K9z5X/Eo/kf",
     },
   ];
 
