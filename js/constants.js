@@ -24,6 +24,32 @@ const declineCallBtn = document.getElementById("declineCallBtn");
 const incomingCallText = document.querySelector("#incomingCallModal h2");
 const remoteAudio = document.getElementById("remoteAudio");
 
+const ICE_SERVERS = [
+  {
+    urls: "stun:stun.relay.metered.ca:80",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "64a842e9e0257e8c336c930b",
+    credential: "kC6B4K9z5X/Eo/kf",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "64a842e9e0257e8c336c930b",
+    credential: "kC6B4K9z5X/Eo/kf",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "64a842e9e0257e8c336c930b",
+    credential: "kC6B4K9z5X/Eo/kf",
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "64a842e9e0257e8c336c930b",
+    credential: "kC6B4K9z5X/Eo/kf",
+  },
+];
+
 let socket;
 let clientId = null;
 let userName = null;

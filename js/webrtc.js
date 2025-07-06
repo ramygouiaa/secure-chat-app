@@ -1,31 +1,5 @@
 function createConnection() {
-  const iceServers = [
-    {
-      urls: "stun:stun.relay.metered.ca:80",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:443",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turns:global.relay.metered.ca:443?transport=tcp",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-  ];
-
-  localConnection = new RTCPeerConnection({ iceServers });
+  localConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
   dataChannel = localConnection.createDataChannel("chat");
   setupDataChannel(dataChannel);
@@ -91,33 +65,7 @@ async function handleOffer(offer, fromId, publicKey) {
   currentTargetName = peers[fromId];
   chatWith.textContent = "Chatting with: " + currentTargetName;
 
-  const iceServers = [
-    {
-      urls: "stun:stun.relay.metered.ca:80",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:443",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-    {
-      urls: "turns:global.relay.metered.ca:443?transport=tcp",
-      username: "64a842e9e0257e8c336c930b",
-      credential: "kC6B4K9z5X/Eo/kf",
-    },
-  ];
-
-  localConnection = new RTCPeerConnection({ iceServers });
+  localConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
   localConnection.ondatachannel = (event) => setupDataChannel(event.channel);
 
