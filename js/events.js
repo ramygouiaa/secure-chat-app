@@ -9,6 +9,7 @@ openSidebarBtn.onclick = () => sidebar.classList.remove("hidden");
 closeSidebarBtn.onclick = () => sidebar.classList.add("hidden");
 answerCallBtn.onclick = answerCall;
 declineCallBtn.onclick = declineCall;
+muteBtn.onclick = toggleMute;
 
 messageInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {

@@ -202,6 +202,8 @@ async function initiateCall(video) {
       messagesContainer.classList.add("hidden");
     }
     hangUpBtn.classList.remove("hidden");
+    muteBtn.classList.remove("hidden");
+    recordBtn.classList.add("hidden");
 
     const offer = await localConnection.createOffer();
     await localConnection.setLocalDescription(offer);
@@ -274,6 +276,8 @@ async function answerCall() {
       messagesContainer.classList.add("hidden");
     }
     hangUpBtn.classList.remove("hidden");
+    muteBtn.classList.remove("hidden");
+    recordBtn.classList.add("hidden");
 
     await localConnection.setRemoteDescription(
       new RTCSessionDescription(incomingOffer)
@@ -340,6 +344,8 @@ function handleHangUp(shouldCreateNewConnection = true) {
   videoContainer.classList.add("hidden");
   messagesContainer.classList.remove("hidden");
   hangUpBtn.classList.add("hidden");
+  muteBtn.classList.add("hidden");
+  recordBtn.classList.remove("hidden");
   remoteVideo.srcObject = null;
   remoteAudio.srcObject = null;
   localVideo.srcObject = null;
@@ -353,4 +359,14 @@ function handleHangUp(shouldCreateNewConnection = true) {
     createConnection();
   }
   showNotification("Call ended.", "info");
+}
+
+function toggleMute() {
+  if (!localStream) return;
+  localStream.getAudioTracks().forEach((track) => {
+    track.enabled = !track.enabled;
+    muteBtn.innerHTML = track.enabled
+      ? '<i class="fas fa-microphone"></i>'
+      : '<i class="fas fa-microphone-slash"></i>';
+  });
 }
