@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureChat - Real Users</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-900 text-white">
+    <!-- Notification Container -->
+    <div
+      id="notification"
+      class="hidden fixed top-0 left-0 right-0 p-4 text-white text-center z-50"
+    ></div>
+
+    <div class="flex h-screen">
+      <!-- Sidebar -->
+      <div
+        id="sidebar"
+        class="w-full md:w-80 bg-gray-800 border-r border-gray-700 flex-col md:flex absolute md:relative h-full z-20 hidden"
+      >
+        <div
+          class="p-4 border-b border-gray-700 flex justify-between items-center"
+        >
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold text-green-400">SecureChat</h1>
+            <div
+              class="ml-2 w-3 h-3 bg-green-500 rounded-full"
+              title="E2E Encryption Active"
+            ></div>
+          </div>
+          <button
+            id="closeSidebarBtn"
+            class="md:hidden text-gray-400 hover:text-white"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <div class="text-sm">
+            Your name:
+            <span id="displayName" class="font-bold text-green-400"></span>
+          </div>
+          <div class="text-xs text-gray-400">
+            Your ID: <span id="clientIdDisplay"></span>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="p-2">
+            <div class="text-sm text-gray-400 mb-2">Contacts</div>
+            <div id="contactsList" class="space-y-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Chat Area -->
+      <div class="flex-1 flex flex-col">
+        <div class="p-4 bg-gray-800 border-b border-gray-700">
+          <div class="flex items-center justify-between">
+            <button
+              id="openSidebarBtn"
+              class="md:hidden text-gray-400 hover:text-white mr-4"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h16m-7 6h7"
+                ></path>
+              </svg>
+            </button>
+            <div class="flex-1">
+              <div class="font-medium" id="chatWith">Not connected</div>
+              <div class="text-sm text-gray-400" id="connectionStatus">
+                Disconnected
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Call Elements -->
+        <div id="videoContainer" class="hidden relative flex-1">
+          <video
+            id="remoteVideo"
+            autoplay
+            class="w-full h-full object-cover"
+          ></video>
+          <video
+            id="localVideo"
+            autoplay
+            muted
+            class="absolute bottom-4 right-4 w-48 h-36 border-2 border-white rounded-lg"
+          ></video>
+        </div>
+
+        <!-- Messages -->
+        <div
+          id="messagesContainer"
+          class="flex-1 overflow-y-auto p-4 space-y-4"
+        ></div>
+
+        <!-- Message Input -->
+        <div class="p-4 bg-gray-800 border-t border-gray-700">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              id="messageInput"
+              placeholder="Type a message..."
+              class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+            <button
+              id="sendBtn"
+              class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg"
+            >
+              Send
+            </button>
+            <button
+              id="recordBtn"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+            >
+              Record
+            </button>
+            <button
+              id="fileBtn"
+              class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg"
+            >
+              Share File
+            </button>
+            <input type="file" id="fileInput" class="hidden" />
+            <button
+              id="voiceCallBtn"
+              class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-lg"
+            >
+              Voice Call
+            </button>
+            <button
+              id="videoCallBtn"
+              class="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg"
+            >
+              Video Call
+            </button>
+            <button
+              id="hangUpBtn"
+              class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg"
+            >
+              Hang Up
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div
+      id="incomingCallModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+        <h2 class="text-2xl font-bold mb-4">Incoming Video Call</h2>
+        <p class="mb-6">
+          You have a call from <span id="callerName" class="font-bold"></span>.
+        </p>
+        <div class="flex justify-center gap-4">
+          <button
+            id="answerCallBtn"
+            class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg"
+          >
+            Answer
+          </button>
+          <button
+            id="declineCallBtn"
+            class="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg"
+          >
+            Decline
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+      let socket;
+      let clientId = null;
+      let userName = null;
+      let currentTargetId = null;
+      let currentTargetName = null;
+      let peers = {};
+      let localConnection = null;
+      let dataChannel = null;
+      let messages = [];
+      let typingTimeout = null;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      const fileChunks = new Map();
+      let localStream = null;
+
+      // E2EE variables
+      let myKeys = null;
+      let sharedSecrets = {}; // targetId -> shared secret
+
+      const messageInput = document.getElementById("messageInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const recordBtn = document.getElementById("recordBtn");
+      const fileBtn = document.getElementById("fileBtn");
+      const fileInput = document.getElementById("fileInput");
+      const voiceCallBtn = document.getElementById("voiceCallBtn");
+      const videoCallBtn = document.getElementById("videoCallBtn");
+      const hangUpBtn = document.getElementById("hangUpBtn");
+      const videoContainer = document.getElementById("videoContainer");
+      const localVideo = document.getElementById("localVideo");
+      const remoteVideo = document.getElementById("remoteVideo");
+      const messagesContainer = document.getElementById("messagesContainer");
+      const contactsList = document.getElementById("contactsList");
+      const sidebar = document.getElementById("sidebar");
+      const openSidebarBtn = document.getElementById("openSidebarBtn");
+      const closeSidebarBtn = document.getElementById("closeSidebarBtn");
+      const chatWith = document.getElementById("chatWith");
+      const connectionStatus = document.getElementById("connectionStatus");
+      const notification = document.getElementById("notification");
+      const incomingCallModal = document.getElementById("incomingCallModal");
+      const callerName = document.getElementById("callerName");
+      const answerCallBtn = document.getElementById("answerCallBtn");
+      const declineCallBtn = document.getElementById("declineCallBtn");
+      const incomingCallText = document.querySelector("#incomingCallModal h2");
+      const remoteAudio = document.getElementById("remoteAudio");
+
+      function showNotification(message, type = "info") {
+        notification.textContent = message;
+        notification.className =
+          "fixed top-0 left-0 right-0 p-4 text-white text-center z-50"; // Reset classes
+        if (type === "error") {
+          notification.classList.add("bg-red-600");
+        } else if (type === "warning") {
+          notification.classList.add("bg-yellow-600");
+        } else {
+          notification.classList.add("bg-blue-600");
+        }
+        notification.classList.remove("hidden");
+        setTimeout(() => {
+          notification.classList.add("hidden");
+        }, 5000);
+      }
+
+      function connectToSignalingServer() {
+        socket = new WebSocket("ws://localhost:3000");
+
+        socket.onopen = () => {
+          console.log("Connected to signaling server");
+          showNotification("Connected to signaling server.", "info");
+        };
+
+        socket.onclose = () => {
+          showNotification(
+            "Disconnected from signaling server. Reconnecting...",
+            "warning"
+          );
+          setTimeout(connectToSignalingServer, 3000);
+        };
+
+        socket.onerror = (err) => {
+          console.error("WebSocket error:", err);
+          showNotification("Connection error.", "error");
+        };
+
+        socket.onmessage = async (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === "init") {
+            clientId = message.id;
+            document.getElementById("clientIdDisplay").textContent = clientId;
+            socket.send(JSON.stringify({ type: "register", name: userName }));
+          } else if (message.type === "peer-list") {
+            updateContactList(message.peers);
+          } else if (message.type === "offer") {
+            await handleOffer(message.data, message.from, message.publicKey);
+          } else if (message.type === "answer") {
+            await handleAnswer(message.data, message.from, message.publicKey);
+          } else if (message.type === "ice-candidate") {
+            await localConnection.addIceCandidate(message.data);
+          } else if (message.type === "server-shutdown") {
+            showNotification(message.message, "error");
+            socket.close();
+          } else if (message.type === "video-offer") {
+            await handleCallOffer(message.data, message.from, true);
+          } else if (message.type === "voice-offer") {
+            await handleCallOffer(message.data, message.from, false);
+          } else if (
+            message.type === "video-answer" ||
+            message.type === "voice-answer"
+          ) {
+            await handleCallAnswer(message.data);
+          } else if (message.type === "hang-up") {
+            handleHangUp(true);
+          } else if (message.type === "decline-call") {
+            showNotification(
+              `${peers[message.from]} declined the call.`,
+              "warning"
+            );
+            handleHangUp(false); // Don't send another hangup message
+          }
+        };
+      }
+
+      function updateContactList(peerArray) {
+        contactsList.innerHTML = "";
+        peers = {};
+        peerArray.forEach((peer) => {
+          if (peer.id !== clientId) {
+            peers[peer.id] = peer.name;
+            const item = document.createElement("div");
+            item.className =
+              "contact-item flex items-center gap-3 p-2 hover:bg-gray-700 rounded cursor-pointer";
+            item.dataset.id = peer.id;
+            item.innerHTML = `
+              <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm">${peer.name.charAt(0)}</span>
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-medium">${peer.name}</div>
+                <div class="text-xs text-gray-400">Online</div>
+              </div>
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            `;
+            item.onclick = () => startChatWith(peer.id, peer.name);
+            contactsList.appendChild(item);
+          }
+        });
+      }
+
+      function startChatWith(targetId, name) {
+        currentTargetId = targetId;
+        currentTargetName = name;
+        chatWith.textContent = "Chatting with: " + name;
+        createConnection();
+      }
+
+      function createConnection() {
+        const iceServers = [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" },
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+        ];
+
+        localConnection = new RTCPeerConnection({ iceServers });
+
+        dataChannel = localConnection.createDataChannel("chat");
+        setupDataChannel(dataChannel);
+
+        localConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.send(
+              JSON.stringify({
+                type: "ice-candidate",
+                data: event.candidate,
+                target: currentTargetId,
+              })
+            );
+          }
+        };
+
+        localConnection.ondatachannel = (event) => {
+          setupDataChannel(event.channel);
+        };
+
+        localConnection.onconnectionstatechange = () => {
+          connectionStatus.textContent = localConnection.connectionState;
+        };
+
+        localConnection.ontrack = (event) => {
+          if (isVideoCall) {
+            remoteVideo.srcObject = event.streams[0];
+          } else {
+            remoteAudio.srcObject = event.streams[0];
+          }
+        };
+
+        localConnection
+          .createOffer()
+          .then((offer) => localConnection.setLocalDescription(offer))
+          .then(async () => {
+            const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
+            socket.send(
+              JSON.stringify({
+                type: "offer",
+                data: localConnection.localDescription,
+                publicKey: exportedPublicKey,
+                target: currentTargetId,
+              })
+            );
+          });
+      }
+
+      async function handleAnswer(answer, fromId, publicKey) {
+        const remotePublicKey = await importPublicKey(publicKey);
+        const sharedSecret = await deriveSharedSecret(
+          myKeys.privateKey,
+          remotePublicKey
+        );
+        sharedSecrets[fromId] = sharedSecret;
+        console.log(`Shared secret established with ${peers[fromId]}`);
+        await localConnection.setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+      }
+
+      async function handleOffer(offer, fromId, publicKey) {
+        currentTargetId = fromId;
+        currentTargetName = peers[fromId];
+        chatWith.textContent = "Chatting with: " + currentTargetName;
+
+        const iceServers = [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" },
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+        ];
+
+        localConnection = new RTCPeerConnection({ iceServers });
+
+        localConnection.ondatachannel = (event) =>
+          setupDataChannel(event.channel);
+
+        localConnection.ontrack = (event) => {
+          if (isVideoCall) {
+            remoteVideo.srcObject = event.streams[0];
+          } else {
+            remoteAudio.srcObject = event.streams[0];
+          }
+        };
+
+        localConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.send(
+              JSON.stringify({
+                type: "ice-candidate",
+                data: event.candidate,
+                target: currentTargetId,
+              })
+            );
+          }
+        };
+
+        await localConnection.setRemoteDescription(
+          new RTCSessionDescription(offer)
+        );
+
+        const remotePublicKey = await importPublicKey(publicKey);
+        const sharedSecret = await deriveSharedSecret(
+          myKeys.privateKey,
+          remotePublicKey
+        );
+        sharedSecrets[fromId] = sharedSecret;
+        console.log(`Shared secret established with ${peers[fromId]}`);
+
+        const answer = await localConnection.createAnswer();
+        await localConnection.setLocalDescription(answer);
+
+        const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
+        socket.send(
+          JSON.stringify({
+            type: "answer",
+            data: answer,
+            publicKey: exportedPublicKey,
+            target: currentTargetId,
+          })
+        );
+      }
+
+      function setupDataChannel(channel) {
+        dataChannel = channel;
+        dataChannel.onopen = () => {
+          connectionStatus.textContent = "Connected";
+        };
+        dataChannel.onmessage = async (event) => {
+          const decryptedData = await decryptMessage(
+            event.data,
+            currentTargetId
+          );
+          const message = JSON.parse(new TextDecoder().decode(decryptedData));
+
+          if (message.type === "typing") {
+            connectionStatus.textContent = "Typing...";
+          } else if (message.type === "stop-typing") {
+            connectionStatus.textContent = "Connected";
+          } else if (message.type === "file-start") {
+            fileChunks.set(message.fileId, {
+              chunks: [],
+              meta: { name: message.fileName, type: message.fileType },
+            });
+          } else if (message.type === "file-chunk") {
+            const fileData = fileChunks.get(message.fileId);
+            if (fileData) {
+              const chunk = base64ToUint8Array(message.data);
+              fileData.chunks.push(chunk);
+            }
+          } else if (message.type === "file-end") {
+            const fileData = fileChunks.get(message.fileId);
+            if (fileData) {
+              const fileBlob = new Blob(fileData.chunks, {
+                type: fileData.meta.type,
+              });
+              const fileUrl = URL.createObjectURL(fileBlob);
+              messages.push({
+                sender: currentTargetName,
+                file: { name: fileData.meta.name, url: fileUrl },
+              });
+              renderMessages();
+              fileChunks.delete(message.fileId);
+            }
+          } else if (message.type === "text") {
+            messages.push({ sender: currentTargetName, text: message.content });
+            renderMessages();
+          } else if (message.type === "voice") {
+            const audioBlob = new Blob([base64ToUint8Array(message.data)], {
+              type: "audio/webm",
+            });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            messages.push({ sender: currentTargetName, audioUrl: audioUrl });
+            renderMessages();
+          } else if (message.audioUrl) {
+            messages.push({
+              sender: currentTargetName,
+              audioUrl: message.audioUrl,
+            });
+            renderMessages();
+          }
+        };
+      }
+
+      async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text || !dataChannel || dataChannel.readyState !== "open") return;
+
+        const message = { type: "text", content: text };
+        messages.push({ sender: "You", text: text });
+
+        const encryptedMessage = await encryptMessage(
+          JSON.stringify(message),
+          currentTargetId
+        );
+        dataChannel.send(encryptedMessage);
+        renderMessages();
+        messageInput.value = "";
+      }
+
+      function renderMessages() {
+        messagesContainer.innerHTML = messages
+          .map(
+            (msg) => `
+          <div class="flex ${
+            msg.sender === "You" ? "justify-end" : "justify-start"
+          }">
+            <div class="bg-${
+              msg.sender === "You" ? "green" : "gray"
+            }-700 px-4 py-2 rounded-lg max-w-xs">
+              ${msg.text ? `<span class="text-sm">${msg.text}</span>` : ""}
+              ${
+                msg.audioUrl
+                  ? `<audio controls src="${msg.audioUrl}"></audio>`
+                  : ""
+              }
+              ${
+                msg.file
+                  ? `<a href="${msg.file.url}" download="${msg.file.name}" class="text-blue-300 hover:underline">${msg.file.name}</a>`
+                  : ""
+              }
+            </div>
+          </div>
+        `
+          )
+          .join("");
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      sendBtn.onclick = sendMessage;
+      recordBtn.onclick = toggleRecording;
+      fileBtn.onclick = () => fileInput.click();
+      fileInput.onchange = handleFileSelect;
+      voiceCallBtn.onclick = () => initiateCall(false);
+      videoCallBtn.onclick = () => initiateCall(true);
+      hangUpBtn.onclick = hangUp;
+      openSidebarBtn.onclick = () => sidebar.classList.remove("hidden");
+      closeSidebarBtn.onclick = () => sidebar.classList.add("hidden");
+      answerCallBtn.onclick = answerCall;
+      declineCallBtn.onclick = declineCall;
+
+      messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          sendMessage();
+        } else {
+          handleTyping();
+        }
+      });
+
+      function handleTyping() {
+        if (dataChannel && dataChannel.readyState === "open") {
+          const typingMessage = JSON.stringify({ type: "typing" });
+          encryptMessage(typingMessage, currentTargetId).then((encrypted) => {
+            dataChannel.send(encrypted);
+          });
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+            const stopTypingMessage = JSON.stringify({ type: "stop-typing" });
+            encryptMessage(stopTypingMessage, currentTargetId).then(
+              (encrypted) => {
+                dataChannel.send(encrypted);
+              }
+            );
+          }, 1000);
+        }
+      }
+
+      let incomingOffer = null;
+      let callInitiatorId = null;
+      let isVideoCall = false;
+
+      async function initiateCall(video) {
+        if (!currentTargetId) {
+          showNotification("Please select a contact to call.", "warning");
+          return;
+        }
+        if (
+          !localConnection ||
+          localConnection.connectionState !== "connected"
+        ) {
+          showNotification(
+            "You must be connected to a peer to start a call.",
+            "error"
+          );
+          return;
+        }
+
+        isVideoCall = video;
+
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: isVideoCall,
+            audio: true,
+          });
+          localVideo.srcObject = localStream;
+          localStream
+            .getTracks()
+            .forEach((track) => localConnection.addTrack(track, localStream));
+
+          if (isVideoCall) {
+            videoContainer.classList.remove("hidden");
+            messagesContainer.classList.add("hidden");
+          }
+          hangUpBtn.classList.remove("hidden");
+
+          const offer = await localConnection.createOffer();
+          await localConnection.setLocalDescription(offer);
+
+          socket.send(
+            JSON.stringify({
+              type: isVideoCall ? "video-offer" : "voice-offer",
+              data: offer,
+              target: currentTargetId,
+            })
+          );
+
+          showNotification(`Calling ${currentTargetName}...`, "info");
+        } catch (err) {
+          console.error(
+            `Error starting ${isVideoCall ? "video" : "voice"} call:`,
+            err
+          );
+          showNotification(
+            `Could not start ${
+              isVideoCall ? "video" : "voice"
+            } call. Check camera/mic permissions.`,
+            "error"
+          );
+        }
+      }
+
+      async function handleCallOffer(offer, fromId, isVideo) {
+        if (
+          localConnection &&
+          localConnection.connectionState === "connected" &&
+          localStream
+        ) {
+          console.log("Already in a call, rejecting new offer.");
+          socket.send(JSON.stringify({ type: "decline-call", target: fromId }));
+          return;
+        }
+
+        incomingOffer = offer;
+        callInitiatorId = fromId;
+        isVideoCall = isVideo;
+
+        incomingCallText.textContent = isVideo
+          ? "Incoming Video Call"
+          : "Incoming Voice Call";
+        callerName.textContent = peers[fromId] || "Unknown";
+        incomingCallModal.classList.remove("hidden");
+      }
+
+      async function answerCall() {
+        incomingCallModal.classList.add("hidden");
+
+        if (!localConnection) {
+          console.error("No local connection to answer call");
+          return;
+        }
+
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: isVideoCall,
+            audio: true,
+          });
+          localVideo.srcObject = localStream;
+          localStream
+            .getTracks()
+            .forEach((track) => localConnection.addTrack(track, localStream));
+
+          if (isVideoCall) {
+            videoContainer.classList.remove("hidden");
+            messagesContainer.classList.add("hidden");
+          }
+          hangUpBtn.classList.remove("hidden");
+
+          await localConnection.setRemoteDescription(
+            new RTCSessionDescription(incomingOffer)
+          );
+          const answer = await localConnection.createAnswer();
+          await localConnection.setLocalDescription(answer);
+
+          socket.send(
+            JSON.stringify({
+              type: isVideoCall ? "video-answer" : "voice-answer",
+              data: answer,
+              target: callInitiatorId,
+            })
+          );
+
+          currentTargetId = callInitiatorId;
+          currentTargetName = peers[callInitiatorId];
+          chatWith.textContent = "Chatting with: " + currentTargetName;
+
+          incomingOffer = null;
+          callInitiatorId = null;
+        } catch (err) {
+          console.error("Error answering call:", err);
+          showNotification(
+            "Could not answer call. Check camera/mic permissions.",
+            "error"
+          );
+        }
+      }
+
+      async function handleCallAnswer(answer) {
+        await localConnection.setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+        showNotification("Call connected!", "info");
+      }
+
+      function declineCall() {
+        incomingCallModal.classList.add("hidden");
+        socket.send(
+          JSON.stringify({
+            type: "decline-call",
+            target: callInitiatorId,
+          })
+        );
+        incomingOffer = null;
+        callInitiatorId = null;
+      }
+
+      function hangUp() {
+        socket.send(
+          JSON.stringify({
+            type: "hang-up",
+            target: currentTargetId,
+          })
+        );
+        handleHangUp(true);
+      }
+
+      function handleHangUp(shouldCreateNewConnection = true) {
+        if (localStream) {
+          localStream.getTracks().forEach((track) => track.stop());
+          localStream = null;
+        }
+
+        videoContainer.classList.add("hidden");
+        messagesContainer.classList.remove("hidden");
+        hangUpBtn.classList.add("hidden");
+        remoteVideo.srcObject = null;
+        remoteAudio.srcObject = null;
+        localVideo.srcObject = null;
+
+        if (localConnection) {
+          localConnection.close();
+          localConnection = null;
+        }
+
+        if (shouldCreateNewConnection && currentTargetId) {
+          createConnection();
+        }
+        showNotification("Call ended.", "info");
+      }
+
+      async function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const CHUNK_SIZE = 16384; // 16KB
+        const fileId = crypto.randomUUID();
+
+        const startMessage = JSON.stringify({
+          type: "file-start",
+          fileId: fileId,
+          fileName: file.name,
+          fileType: file.type,
+        });
+        dataChannel.send(await encryptMessage(startMessage, currentTargetId));
+
+        const arrayBuffer = await file.arrayBuffer();
+        for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
+          const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
+          const chunkMessage = JSON.stringify({
+            type: "file-chunk",
+            fileId: fileId,
+            data: arrayBufferToBase64(chunk),
+          });
+          dataChannel.send(await encryptMessage(chunkMessage, currentTargetId));
+        }
+
+        const endMessage = JSON.stringify({ type: "file-end", fileId: fileId });
+        dataChannel.send(await encryptMessage(endMessage, currentTargetId));
+
+        const fileUrl = URL.createObjectURL(file);
+        messages.push({
+          sender: "You",
+          file: { name: file.name, url: fileUrl },
+        });
+        renderMessages();
+      }
+
+      async function toggleRecording() {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          recordBtn.textContent = "Record";
+        } else {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+          mediaRecorder.onstop = async () => {
+            const blob = new Blob(recordedChunks, { type: "audio/webm" });
+            recordedChunks = [];
+            const audioUrl = URL.createObjectURL(blob);
+            messages.push({ sender: "You", audioUrl: audioUrl });
+            renderMessages();
+
+            const arrayBuffer = await blob.arrayBuffer();
+            const message = {
+              type: "voice",
+              data: arrayBufferToBase64(arrayBuffer),
+            };
+            const encryptedVoiceMessage = await encryptMessage(
+              JSON.stringify(message),
+              currentTargetId
+            );
+            dataChannel.send(encryptedVoiceMessage);
+          };
+          mediaRecorder.start();
+          recordBtn.textContent = "Stop";
+        }
+      }
+
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+      }
+
+      function base64ToUint8Array(base64) {
+        const binary_string = window.atob(base64);
+        const len = binary_string.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      // E2EE Helper Functions
+      async function generateKeys() {
+        return await window.crypto.subtle.generateKey(
+          { name: "ECDH", namedCurve: "P-256" },
+          true,
+          ["deriveKey"]
+        );
+      }
+
+      async function exportPublicKey(key) {
+        const exported = await window.crypto.subtle.exportKey("jwk", key);
+        return exported;
+      }
+
+      async function importPublicKey(jwk) {
+        return await window.crypto.subtle.importKey(
+          "jwk",
+          jwk,
+          { name: "ECDH", namedCurve: "P-256" },
+          true,
+          []
+        );
+      }
+
+      async function deriveSharedSecret(privateKey, publicKey) {
+        return await window.crypto.subtle.deriveKey(
+          { name: "ECDH", public: publicKey },
+          privateKey,
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"]
+        );
+      }
+
+      async function encryptMessage(data, targetId) {
+        const secret = sharedSecrets[targetId];
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+        let dataToEncrypt;
+        if (typeof data === "string") {
+          dataToEncrypt = new TextEncoder().encode(data);
+        } else {
+          dataToEncrypt = data;
+        }
+
+        const ciphertext = await window.crypto.subtle.encrypt(
+          { name: "AES-GCM", iv: iv },
+          secret,
+          dataToEncrypt
+        );
+
+        // Combine IV and ciphertext for sending
+        const buffer = new Uint8Array(iv.length + ciphertext.byteLength);
+        buffer.set(iv, 0);
+        buffer.set(new Uint8Array(ciphertext), iv.length);
+        return buffer;
+      }
+
+      async function decryptMessage(data, senderId) {
+        const secret = sharedSecrets[senderId];
+        const buffer = new Uint8Array(data);
+        const iv = buffer.slice(0, 12);
+        const ciphertext = buffer.slice(12);
+
+        const decrypted = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: iv },
+          secret,
+          ciphertext
+        );
+
+        return decrypted;
+      }
+
+      async function init() {
+        myKeys = await generateKeys();
+        console.log("Generated crypto keys.");
+
+        userName = prompt("Enter your name:");
+        if (!userName) {
+          alert("A name is required to join the chat.");
+          return;
+        }
+        document.getElementById("displayName").textContent = userName;
+        connectToSignalingServer();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
