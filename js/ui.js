@@ -21,6 +21,9 @@ function updateContactList(peerArray) {
   peerArray.forEach((peer) => {
     if (peer.id !== clientId) {
       peers[peer.id] = peer.name;
+      if (!sessionStorage.getItem(peer.id)) {
+        saveDiscussion(peer.id, { messages: [], calls: [] });
+      }
       const item = document.createElement("div");
       item.className =
         "contact-item flex items-center gap-3 p-2 hover:bg-gray-700 rounded cursor-pointer";
@@ -41,10 +44,17 @@ function updateContactList(peerArray) {
   });
 }
 
-function renderMessages() {
-  messagesContainer.innerHTML = messages
-    .map(
-      (msg) => `
+function renderMessages(peerId) {
+  const discussion = getDiscussion(peerId);
+  if (!discussion) return;
+
+  messagesContainer.innerHTML = discussion.messages
+    .map((msg) => {
+      const time = new Date(msg.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `
     <div class="flex ${msg.sender === "You" ? "justify-end" : "justify-start"}">
       <div class="bg-${
         msg.sender === "You" ? "green" : "gray"
@@ -56,12 +66,31 @@ function renderMessages() {
             ? `<a href="${msg.file.url}" download="${msg.file.name}" class="text-blue-300 hover:underline">${msg.file.name}</a>`
             : ""
         }
+        <div class="text-xs text-gray-400 text-right mt-1">${time}</div>
       </div>
     </div>
-  `
-    )
+  `;
+    })
     .join("");
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function getDiscussion(peerId) {
+  const discussion = sessionStorage.getItem(peerId);
+  return discussion ? JSON.parse(discussion) : { messages: [], calls: [] };
+}
+
+function saveDiscussion(peerId, discussion) {
+  sessionStorage.setItem(peerId, JSON.stringify(discussion));
+}
+
+function startChatWith(peerId, peerName) {
+  currentTargetId = peerId;
+  currentTargetName = peerName;
+  chatWith.textContent = "Chatting with: " + currentTargetName;
+  discussions[peerId] = getDiscussion(peerId);
+  renderMessages(peerId);
+  createConnection();
 }
 
 function arrayBufferToBase64(buffer) {
