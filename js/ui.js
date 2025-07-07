@@ -48,49 +48,61 @@ function renderMessages(peerId) {
   const discussion = getDiscussion(peerId);
   if (!discussion) return;
 
-  const messagesHtml = discussion.messages
-    .map((msg) => {
-      const time = new Date(msg.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      return `
-    <div class="flex ${msg.sender === "You" ? "justify-end" : "justify-start"}">
-      <div class="bg-${
-        msg.sender === "You" ? "green" : "gray"
-      }-700 px-4 py-2 rounded-lg max-w-xs">
-        ${msg.text ? `<span class="text-sm">${msg.text}</span>` : ""}
-        ${msg.audioUrl ? `<audio controls src="${msg.audioUrl}"></audio>` : ""}
-        ${
-          msg.file
-            ? `<a href="${msg.file.url}" download="${msg.file.name}" class="text-blue-300 hover:underline">${msg.file.name}</a>`
-            : ""
-        }
-        <div class="text-xs text-gray-400 text-right mt-1">${time}</div>
+  const allItems = [
+    ...discussion.messages.map((item) => ({ ...item, itemType: "message" })),
+    ...discussion.calls.map((item) => ({ ...item, itemType: "call" })),
+  ];
+
+  allItems.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  const itemsHtml = allItems
+    .map((item) => {
+      if (item.itemType === "message") {
+        const msg = item;
+        const time = new Date(msg.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        return `
+      <div class="flex ${
+        msg.sender === "You" ? "justify-end" : "justify-start"
+      }">
+        <div class="bg-${
+          msg.sender === "You" ? "green" : "gray"
+        }-700 px-4 py-2 rounded-lg max-w-xs">
+          ${msg.text ? `<span class="text-sm">${msg.text}</span>` : ""}
+          ${
+            msg.audioUrl ? `<audio controls src="${msg.audioUrl}"></audio>` : ""
+          }
+          ${
+            msg.file
+              ? `<a href="${msg.file.url}" download="${msg.file.name}" class="text-blue-300 hover:underline">${msg.file.name}</a>`
+              : ""
+          }
+          <div class="text-xs text-gray-400 text-right mt-1">${time}</div>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+      } else {
+        // item.itemType === 'call'
+        const call = item;
+        const time = new Date(call.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const duration = call.status === "ended" ? `(${call.duration}s)` : "";
+        return `
+      <div class="text-center text-gray-500 text-xs my-2">
+        ${call.type === "video" ? "Video" : "Voice"} Call ${
+          call.status
+        } ${duration} - ${time}
+      </div>
+    `;
+      }
     })
     .join("");
 
-  const callsHtml = discussion.calls
-    .map((call) => {
-      const time = new Date(call.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const duration = call.status === "ended" ? `(${call.duration}s)` : "";
-      return `
-    <div class="text-center text-gray-500 text-xs my-2">
-      ${call.type === "video" ? "Video" : "Voice"} Call ${
-        call.status
-      } ${duration} - ${time}
-    </div>
-  `;
-    })
-    .join("");
-
-  messagesContainer.innerHTML = messagesHtml + callsHtml;
+  messagesContainer.innerHTML = itemsHtml;
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
