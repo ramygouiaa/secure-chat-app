@@ -381,7 +381,17 @@ function toggleMute() {
 function playAudioWithLoop(audioElement, loopCount) {
   let playedCount = 0;
   audioElement.currentTime = 0;
-  audioElement.play();
+  const playPromise = audioElement.play();
+  if (playPromise !== undefined) {
+    playPromise
+      .then((_) => {
+        // Autoplay started!
+      })
+      .catch((error) => {
+        // Autoplay was prevented.
+        console.error("Autoplay prevented: ", error);
+      });
+  }
   playedCount++;
 
   audioElement.onended = () => {

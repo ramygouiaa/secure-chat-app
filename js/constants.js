@@ -26,6 +26,8 @@ const remoteAudio = document.getElementById("remoteAudio");
 const muteBtn = document.getElementById("muteBtn");
 const dialingSound = document.getElementById("dialingSound");
 const ringingSound = document.getElementById("ringingSound");
+const startScreen = document.getElementById("startScreen");
+const startBtn = document.getElementById("startBtn");
 
 const ICE_SERVERS = [
   {

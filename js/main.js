@@ -11,4 +11,7 @@ async function init() {
   connectToSignalingServer();
 }
 
-init();
+startBtn.onclick = () => {
+  startScreen.classList.add("hidden");
+  init();
+};
