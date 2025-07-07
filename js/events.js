@@ -33,15 +33,25 @@ async function sendMessage() {
   const text = messageInput.value.trim();
   if (!text || !dataChannel || dataChannel.readyState !== "open") return;
 
-  const message = { type: "text", content: text };
-  messages.push({ sender: "You", text: text });
+  const message = {
+    type: "text",
+    content: text,
+    timestamp: new Date().toISOString(),
+  };
+  const discussion = getDiscussion(currentTargetId);
+  discussion.messages.push({
+    sender: "You",
+    text: text,
+    timestamp: message.timestamp,
+  });
+  saveDiscussion(currentTargetId, discussion);
 
   const encryptedMessage = await encryptMessage(
     JSON.stringify(message),
     currentTargetId
   );
   dataChannel.send(encryptedMessage);
-  renderMessages();
+  renderMessages(currentTargetId);
   messageInput.value = "";
   sendBtn.classList.add("hidden");
   recordBtn.classList.remove("hidden");
@@ -70,34 +80,58 @@ async function handleFileSelect(event) {
   const CHUNK_SIZE = 16384; // 16KB
   const fileId = crypto.randomUUID();
 
-  const startMessage = JSON.stringify({
+  const timestamp = new Date().toISOString();
+  const startMessage = {
     type: "file-start",
     fileId: fileId,
     fileName: file.name,
     fileType: file.type,
-  });
-  dataChannel.send(await encryptMessage(startMessage, currentTargetId));
+    timestamp: timestamp,
+  };
 
-  const arrayBuffer = await file.arrayBuffer();
-  for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
-    const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
-    const chunkMessage = JSON.stringify({
-      type: "file-chunk",
-      fileId: fileId,
-      data: arrayBufferToBase64(chunk),
-    });
-    dataChannel.send(await encryptMessage(chunkMessage, currentTargetId));
+  const sendFile = async () => {
+    dataChannel.send(
+      await encryptMessage(JSON.stringify(startMessage), currentTargetId)
+    );
+
+    const arrayBuffer = await file.arrayBuffer();
+    for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
+      const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
+      const chunkMessage = {
+        type: "file-chunk",
+        fileId: fileId,
+        data: arrayBufferToBase64(chunk),
+      };
+      dataChannel.send(
+        await encryptMessage(JSON.stringify(chunkMessage), currentTargetId)
+      );
+    }
+
+    const endMessage = { type: "file-end", fileId: fileId };
+    dataChannel.send(
+      await encryptMessage(JSON.stringify(endMessage), currentTargetId)
+    );
+  };
+
+  if (dataChannel && dataChannel.readyState === "open") {
+    sendFile();
+  } else {
+    const onDataChannelOpen = () => {
+      sendFile();
+      dataChannel.removeEventListener("open", onDataChannelOpen);
+    };
+    dataChannel.addEventListener("open", onDataChannelOpen);
   }
 
-  const endMessage = JSON.stringify({ type: "file-end", fileId: fileId });
-  dataChannel.send(await encryptMessage(endMessage, currentTargetId));
-
   const fileUrl = URL.createObjectURL(file);
-  messages.push({
+  const discussion = getDiscussion(currentTargetId);
+  discussion.messages.push({
     sender: "You",
     file: { name: file.name, url: fileUrl },
+    timestamp: timestamp,
   });
-  renderMessages();
+  saveDiscussion(currentTargetId, discussion);
+  renderMessages(currentTargetId);
 }
 
 async function toggleRecording() {
@@ -118,13 +152,21 @@ async function toggleRecording() {
       const blob = new Blob(recordedChunks, { type: "audio/webm" });
       recordedChunks = [];
       const audioUrl = URL.createObjectURL(blob);
-      messages.push({ sender: "You", audioUrl: audioUrl });
-      renderMessages();
+      const timestamp = new Date().toISOString();
+      const discussion = getDiscussion(currentTargetId);
+      discussion.messages.push({
+        sender: "You",
+        audioUrl: audioUrl,
+        timestamp: timestamp,
+      });
+      saveDiscussion(currentTargetId, discussion);
+      renderMessages(currentTargetId);
 
       const arrayBuffer = await blob.arrayBuffer();
       const message = {
         type: "voice",
         data: arrayBufferToBase64(arrayBuffer),
+        timestamp: timestamp,
       };
       const encryptedVoiceMessage = await encryptMessage(
         JSON.stringify(message),

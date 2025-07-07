@@ -118,10 +118,12 @@ function setupDataChannel(channel) {
   dataChannel = channel;
   dataChannel.onopen = () => {
     connectionStatus.textContent = "Connected";
+    renderMessages(currentTargetId);
   };
   dataChannel.onmessage = async (event) => {
     const decryptedData = await decryptMessage(event.data, currentTargetId);
     const message = JSON.parse(new TextDecoder().decode(decryptedData));
+    const discussion = getDiscussion(currentTargetId);
 
     if (message.type === "typing") {
       connectionStatus.textContent = "Typing...";
@@ -130,7 +132,11 @@ function setupDataChannel(channel) {
     } else if (message.type === "file-start") {
       fileChunks.set(message.fileId, {
         chunks: [],
-        meta: { name: message.fileName, type: message.fileType },
+        meta: {
+          name: message.fileName,
+          type: message.fileType,
+          timestamp: message.timestamp,
+        },
       });
     } else if (message.type === "file-chunk") {
       const fileData = fileChunks.get(message.fileId);
@@ -145,34 +151,41 @@ function setupDataChannel(channel) {
           type: fileData.meta.type,
         });
         const fileUrl = URL.createObjectURL(fileBlob);
-        messages.push({
+        discussion.messages.push({
           sender: currentTargetName,
           file: { name: fileData.meta.name, url: fileUrl },
+          timestamp: fileData.meta.timestamp,
         });
-        renderMessages();
+        saveDiscussion(currentTargetId, discussion);
+        renderMessages(currentTargetId);
         fileChunks.delete(message.fileId);
       }
     } else if (message.type === "text") {
-      messages.push({ sender: currentTargetName, text: message.content });
-      renderMessages();
+      discussion.messages.push({
+        sender: currentTargetName,
+        text: message.content,
+        timestamp: message.timestamp,
+      });
+      saveDiscussion(currentTargetId, discussion);
+      renderMessages(currentTargetId);
     } else if (message.type === "voice") {
       const audioBlob = new Blob([base64ToUint8Array(message.data)], {
         type: "audio/webm",
       });
       const audioUrl = URL.createObjectURL(audioBlob);
-      messages.push({ sender: currentTargetName, audioUrl: audioUrl });
-      renderMessages();
-    } else if (message.audioUrl) {
-      messages.push({
+      discussion.messages.push({
         sender: currentTargetName,
-        audioUrl: message.audioUrl,
+        audioUrl: audioUrl,
+        timestamp: message.timestamp,
       });
-      renderMessages();
+      saveDiscussion(currentTargetId, discussion);
+      renderMessages(currentTargetId);
     }
   };
 }
 
 async function initiateCall(video) {
+  callStartTime = new Date();
   if (!currentTargetId) {
     showNotification("Please select a contact to call.", "warning");
     return;
@@ -258,6 +271,7 @@ async function handleCallOffer(offer, fromId, isVideo) {
 async function answerCall() {
   incomingCallModal.classList.add("hidden");
   stopAudio(ringingSound);
+  callStartTime = new Date();
 
   if (!localConnection) {
     console.error("No local connection to answer call");
@@ -343,6 +357,19 @@ function hangUp() {
 function handleHangUp(shouldCreateNewConnection = true) {
   stopAudio(dialingSound);
   stopAudio(ringingSound);
+  if (callStartTime) {
+    const callEndTime = new Date();
+    const duration = Math.round((callEndTime - callStartTime) / 1000);
+    const discussion = getDiscussion(currentTargetId);
+    discussion.calls.push({
+      type: isVideoCall ? "video" : "voice",
+      duration: duration,
+      timestamp: callEndTime.toISOString(),
+    });
+    saveDiscussion(currentTargetId, discussion);
+    renderMessages(currentTargetId);
+    callStartTime = null;
+  }
   if (localStream) {
     localStream.getTracks().forEach((track) => track.stop());
     localStream = null;
