@@ -24,6 +24,8 @@ const declineCallBtn = document.getElementById("declineCallBtn");
 const incomingCallText = document.querySelector("#incomingCallModal h2");
 const remoteAudio = document.getElementById("remoteAudio");
 const muteBtn = document.getElementById("muteBtn");
+const dialingSound = document.getElementById("dialingSound");
+const ringingSound = document.getElementById("ringingSound");
 
 const ICE_SERVERS = [
   {

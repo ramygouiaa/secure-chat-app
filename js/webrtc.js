@@ -204,6 +204,7 @@ async function initiateCall(video) {
     hangUpBtn.classList.remove("hidden");
     muteBtn.classList.remove("hidden");
     recordBtn.classList.add("hidden");
+    dialingSound.play();
 
     const offer = await localConnection.createOffer();
     await localConnection.setLocalDescription(offer);
@@ -251,10 +252,12 @@ async function handleCallOffer(offer, fromId, isVideo) {
     : "Incoming Voice Call";
   callerName.textContent = peers[fromId] || "Unknown";
   incomingCallModal.classList.remove("hidden");
+  ringingSound.play();
 }
 
 async function answerCall() {
   incomingCallModal.classList.add("hidden");
+  ringingSound.pause();
 
   if (!localConnection) {
     console.error("No local connection to answer call");
@@ -310,11 +313,13 @@ async function answerCall() {
 
 async function handleCallAnswer(answer) {
   await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  dialingSound.pause();
   showNotification("Call connected!", "info");
 }
 
 function declineCall() {
   incomingCallModal.classList.add("hidden");
+  ringingSound.pause();
   socket.send(
     JSON.stringify({
       type: "decline-call",
@@ -336,6 +341,8 @@ function hangUp() {
 }
 
 function handleHangUp(shouldCreateNewConnection = true) {
+  dialingSound.pause();
+  ringingSound.pause();
   if (localStream) {
     localStream.getTracks().forEach((track) => track.stop());
     localStream = null;
