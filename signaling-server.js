@@ -7,7 +7,7 @@ const path = require("path");
 const server = http.createServer((req, res) => {
   let filePath = "." + req.url;
   if (filePath === "./") {
-    filePath = "./secure-chat-v3.html";
+    filePath = "./secure-chat.html";
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();
