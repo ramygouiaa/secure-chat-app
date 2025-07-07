@@ -204,6 +204,7 @@ async function initiateCall(video) {
     hangUpBtn.classList.remove("hidden");
     muteBtn.classList.remove("hidden");
     recordBtn.classList.add("hidden");
+    playAudioWithLoop(dialingSound, 5);
 
     const offer = await localConnection.createOffer();
     await localConnection.setLocalDescription(offer);
@@ -251,10 +252,12 @@ async function handleCallOffer(offer, fromId, isVideo) {
     : "Incoming Voice Call";
   callerName.textContent = peers[fromId] || "Unknown";
   incomingCallModal.classList.remove("hidden");
+  playAudioWithLoop(ringingSound, 5);
 }
 
 async function answerCall() {
   incomingCallModal.classList.add("hidden");
+  stopAudio(ringingSound);
 
   if (!localConnection) {
     console.error("No local connection to answer call");
@@ -310,11 +313,13 @@ async function answerCall() {
 
 async function handleCallAnswer(answer) {
   await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  stopAudio(dialingSound);
   showNotification("Call connected!", "info");
 }
 
 function declineCall() {
   incomingCallModal.classList.add("hidden");
+  stopAudio(ringingSound);
   socket.send(
     JSON.stringify({
       type: "decline-call",
@@ -336,6 +341,8 @@ function hangUp() {
 }
 
 function handleHangUp(shouldCreateNewConnection = true) {
+  stopAudio(dialingSound);
+  stopAudio(ringingSound);
   if (localStream) {
     localStream.getTracks().forEach((track) => track.stop());
     localStream = null;
@@ -369,4 +376,35 @@ function toggleMute() {
       ? '<i class="fas fa-microphone"></i>'
       : '<i class="fas fa-microphone-slash"></i>';
   });
+}
+
+function playAudioWithLoop(audioElement, loopCount) {
+  let playedCount = 0;
+  audioElement.currentTime = 0;
+  const playPromise = audioElement.play();
+  if (playPromise !== undefined) {
+    playPromise
+      .then((_) => {
+        // Autoplay started!
+      })
+      .catch((error) => {
+        // Autoplay was prevented.
+        console.error("Autoplay prevented: ", error);
+      });
+  }
+  playedCount++;
+
+  audioElement.onended = () => {
+    if (playedCount < loopCount) {
+      audioElement.currentTime = 0;
+      audioElement.play();
+      playedCount++;
+    }
+  };
+}
+
+function stopAudio(audioElement) {
+  audioElement.pause();
+  audioElement.currentTime = 0;
+  audioElement.onended = null;
 }
