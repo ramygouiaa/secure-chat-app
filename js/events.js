@@ -11,6 +11,8 @@ answerCallBtn.onclick = answerCall;
 declineCallBtn.onclick = declineCall;
 muteBtn.onclick = toggleMute;
 
+contactSearchInput.addEventListener("input", filterContacts);
+
 messageInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {
     sendMessage();
