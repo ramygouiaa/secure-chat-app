@@ -3,9 +3,6 @@ const sendBtn = document.getElementById("sendBtn");
 const recordBtn = document.getElementById("recordBtn");
 const fileBtn = document.getElementById("fileBtn");
 const fileInput = document.getElementById("fileInput");
-const voiceCallBtn = document.getElementById("voiceCallBtn");
-const videoCallBtn = document.getElementById("videoCallBtn");
-const hangUpBtn = document.getElementById("hangUpBtn");
 const videoContainer = document.getElementById("videoContainer");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -23,11 +20,17 @@ const answerCallBtn = document.getElementById("answerCallBtn");
 const declineCallBtn = document.getElementById("declineCallBtn");
 const incomingCallText = document.querySelector("#incomingCallModal h2");
 const remoteAudio = document.getElementById("remoteAudio");
-const muteBtn = document.getElementById("muteBtn");
 const dialingSound = document.getElementById("dialingSound");
 const ringingSound = document.getElementById("ringingSound");
 const startScreen = document.getElementById("startScreen");
 const startBtn = document.getElementById("startBtn");
+const contactSearchInput = document.getElementById("contactSearchInput");
+
+// Moved to top banner
+const voiceCallBtn = document.getElementById("voiceCallBtn");
+const videoCallBtn = document.getElementById("videoCallBtn");
+const hangUpBtn = document.getElementById("hangUpBtn");
+const muteBtn = document.getElementById("muteBtn");
 
 const ICE_SERVERS = [
   {
