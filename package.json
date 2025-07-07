@@ -1,9 +1,9 @@
 {
   "name": "securechat",
   "version": "1.0.0",
-  "main": "signaling-server-v3.js",
+  "main": "signaling-server.js",
   "scripts": {
-    "start": "node signaling-server-v3.js"
+    "start": "node signaling-server.js"
   },
   "author": "Ramy Gouiaa",
   "license": "ISC",
