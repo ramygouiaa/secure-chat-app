@@ -357,7 +357,17 @@ function hangUp() {
 function handleHangUp(shouldCreateNewConnection = true) {
   stopAudio(dialingSound);
   stopAudio(ringingSound);
-  if (callStartTime) {
+  if (incomingOffer && !localStream) {
+    incomingCallModal.classList.add("hidden");
+    const discussion = getDiscussion(callInitiatorId);
+    discussion.calls.push({
+      type: isVideoCall ? "video" : "voice",
+      status: "missed",
+      timestamp: new Date().toISOString(),
+    });
+    saveDiscussion(callInitiatorId, discussion);
+    renderMessages(callInitiatorId);
+  } else if (callStartTime) {
     const callEndTime = new Date();
     const duration = Math.round((callEndTime - callStartTime) / 1000);
     const discussion = getDiscussion(currentTargetId);
@@ -365,6 +375,7 @@ function handleHangUp(shouldCreateNewConnection = true) {
       type: isVideoCall ? "video" : "voice",
       duration: duration,
       timestamp: callEndTime.toISOString(),
+      status: "ended",
     });
     saveDiscussion(currentTargetId, discussion);
     renderMessages(currentTargetId);

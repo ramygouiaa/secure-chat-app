@@ -48,7 +48,7 @@ function renderMessages(peerId) {
   const discussion = getDiscussion(peerId);
   if (!discussion) return;
 
-  messagesContainer.innerHTML = discussion.messages
+  const messagesHtml = discussion.messages
     .map((msg) => {
       const time = new Date(msg.timestamp).toLocaleTimeString([], {
         hour: "2-digit",
@@ -72,6 +72,25 @@ function renderMessages(peerId) {
   `;
     })
     .join("");
+
+  const callsHtml = discussion.calls
+    .map((call) => {
+      const time = new Date(call.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const duration = call.status === "ended" ? `(${call.duration}s)` : "";
+      return `
+    <div class="text-center text-gray-500 text-xs my-2">
+      ${call.type === "video" ? "Video" : "Voice"} Call ${
+        call.status
+      } ${duration} - ${time}
+    </div>
+  `;
+    })
+    .join("");
+
+  messagesContainer.innerHTML = messagesHtml + callsHtml;
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
