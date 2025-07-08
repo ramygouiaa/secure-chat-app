@@ -1,5 +1,21 @@
 function createConnection() {
+  if (forceRelay) {
+    activateRelayFallback();
+    initiateRelayKeyExchange();
+    return;
+  }
   localConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  isRelayActive = false; // Reset relay state on new connection
+
+  const connectionTimeout = setTimeout(() => {
+    if (
+      localConnection.connectionState !== "connected" &&
+      localConnection.connectionState !== "completed"
+    ) {
+      console.warn("WebRTC connection timed out. Falling back to relay.");
+      activateRelayFallback();
+    }
+  }, 15000); // 15-second timeout
 
   dataChannel = localConnection.createDataChannel("chat");
   setupDataChannel(dataChannel);
@@ -22,6 +38,18 @@ function createConnection() {
 
   localConnection.onconnectionstatechange = () => {
     connectionStatus.textContent = localConnection.connectionState;
+    if (
+      localConnection.connectionState === "failed" ||
+      localConnection.connectionState === "disconnected"
+    ) {
+      console.error("WebRTC connection failed. Falling back to relay.");
+      activateRelayFallback();
+    } else if (localConnection.connectionState === "connected") {
+      clearTimeout(connectionTimeout);
+      console.log("WebRTC connection established successfully.");
+      isRelayActive = false;
+      connectionStatus.textContent = "Connected (WebRTC)";
+    }
   };
 
   localConnection.ontrack = (event) => {
@@ -60,7 +88,56 @@ async function handleAnswer(answer, fromId, publicKey) {
   await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
 }
 
+async function initiateRelayKeyExchange() {
+  const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
+  socket.send(
+    JSON.stringify({
+      type: "relay-key-exchange",
+      publicKey: exportedPublicKey,
+      target: currentTargetId,
+    })
+  );
+}
+
+async function handleRelayKeyExchange(fromId, publicKey) {
+  const remotePublicKey = await importPublicKey(publicKey);
+  const sharedSecret = await deriveSharedSecret(
+    myKeys.privateKey,
+    remotePublicKey
+  );
+  sharedSecrets[fromId] = sharedSecret;
+  console.log(`Shared secret established via relay with ${peers[fromId]}`);
+
+  // Acknowledge the key exchange
+  const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
+  socket.send(
+    JSON.stringify({
+      type: "relay-key-exchange-ack",
+      publicKey: exportedPublicKey,
+      target: fromId,
+    })
+  );
+  connectionStatus.textContent = "Connected (Relay)";
+  renderMessages(fromId);
+}
+
+async function handleRelayKeyExchangeAck(fromId, publicKey) {
+  const remotePublicKey = await importPublicKey(publicKey);
+  const sharedSecret = await deriveSharedSecret(
+    myKeys.privateKey,
+    remotePublicKey
+  );
+  sharedSecrets[fromId] = sharedSecret;
+  console.log(`Shared secret acknowledged via relay with ${peers[fromId]}`);
+  connectionStatus.textContent = "Connected (Relay)";
+  renderMessages(fromId);
+}
+
 async function handleOffer(offer, fromId, publicKey) {
+  if (forceRelay) {
+    console.log("Ignoring WebRTC offer while in forced relay mode.");
+    return;
+  }
   currentTargetId = fromId;
   currentTargetName = peers[fromId];
   chatWith.textContent = "Chatting with: " + currentTargetName;
@@ -117,18 +194,39 @@ async function handleOffer(offer, fromId, publicKey) {
 function setupDataChannel(channel) {
   dataChannel = channel;
   dataChannel.onopen = () => {
-    connectionStatus.textContent = "Connected";
+    connectionStatus.textContent = "Connected (WebRTC)";
+    isRelayActive = false;
     renderMessages(currentTargetId);
   };
-  dataChannel.onmessage = async (event) => {
-    const decryptedData = await decryptMessage(event.data, currentTargetId);
+  dataChannel.onmessage = (event) => {
+    handleIncomingMessage(event.data, currentTargetId);
+  };
+  dataChannel.onclose = () => {
+    console.warn("Data channel closed.");
+    // activateRelayFallback(); // Fallback if data channel closes unexpectedly
+  };
+}
+
+function activateRelayFallback() {
+  if (isRelayActive) return; // Already active
+  isRelayActive = true;
+  connectionStatus.textContent = "Connected (Relay)";
+  showNotification("WebRTC connection failed. Using relay server.", "warning");
+  // No need to close the localConnection, let it keep trying to connect
+}
+
+async function handleIncomingMessage(encryptedData, senderId) {
+  try {
+    const decryptedData = await decryptMessage(encryptedData, senderId);
     const message = JSON.parse(new TextDecoder().decode(decryptedData));
-    const discussion = getDiscussion(currentTargetId);
+    const discussion = getDiscussion(senderId);
 
     if (message.type === "typing") {
       connectionStatus.textContent = "Typing...";
     } else if (message.type === "stop-typing") {
-      connectionStatus.textContent = "Connected";
+      connectionStatus.textContent = isRelayActive
+        ? "Connected (Relay)"
+        : "Connected (WebRTC)";
     } else if (message.type === "file-start") {
       fileChunks.set(message.fileId, {
         chunks: [],
@@ -152,36 +250,38 @@ function setupDataChannel(channel) {
         });
         const fileUrl = URL.createObjectURL(fileBlob);
         discussion.messages.push({
-          sender: currentTargetName,
+          sender: peers[senderId],
           file: { name: fileData.meta.name, url: fileUrl },
           timestamp: fileData.meta.timestamp,
         });
-        saveDiscussion(currentTargetId, discussion);
-        renderMessages(currentTargetId);
+        saveDiscussion(senderId, discussion);
+        renderMessages(senderId);
         fileChunks.delete(message.fileId);
       }
     } else if (message.type === "text") {
       discussion.messages.push({
-        sender: currentTargetName,
+        sender: peers[senderId],
         text: message.content,
         timestamp: message.timestamp,
       });
-      saveDiscussion(currentTargetId, discussion);
-      renderMessages(currentTargetId);
+      saveDiscussion(senderId, discussion);
+      renderMessages(senderId);
     } else if (message.type === "voice") {
       const audioBlob = new Blob([base64ToUint8Array(message.data)], {
         type: "audio/webm",
       });
       const audioUrl = URL.createObjectURL(audioBlob);
       discussion.messages.push({
-        sender: currentTargetName,
+        sender: peers[senderId],
         audioUrl: audioUrl,
         timestamp: message.timestamp,
       });
-      saveDiscussion(currentTargetId, discussion);
-      renderMessages(currentTargetId);
+      saveDiscussion(senderId, discussion);
+      renderMessages(senderId);
     }
-  };
+  } catch (error) {
+    console.error("Error processing incoming message:", error);
+  }
 }
 
 async function initiateCall(video) {
@@ -190,7 +290,10 @@ async function initiateCall(video) {
     showNotification("Please select a contact to call.", "warning");
     return;
   }
-  if (!localConnection || localConnection.connectionState !== "connected") {
+  if (
+    !isRelayActive &&
+    (!localConnection || localConnection.connectionState !== "connected")
+  ) {
     showNotification(
       "You must be connected to a peer to start a call.",
       "error"

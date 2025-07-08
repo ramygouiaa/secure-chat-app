@@ -9,6 +9,15 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
     />
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .toggle-checkbox:checked {
+        right: 0;
+        border-color: #48bb78;
+      }
+      .toggle-checkbox:checked + .toggle-label {
+        background-color: #48bb78;
+      }
+    </style>
     <link
       rel="apple-touch-icon"
       sizes="180x180"
@@ -101,6 +110,27 @@
           </div>
           <div class="text-xs text-gray-400">
             Your ID: <span id="clientIdDisplay"></span>
+          </div>
+        </div>
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <div class="flex items-center justify-between">
+            <label for="forceRelayToggle" class="text-sm text-gray-300"
+              >Force Relay</label
+            >
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="forceRelayToggle"
+                id="forceRelayToggle"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="forceRelayToggle"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"
+              ></label>
+            </div>
           </div>
         </div>
         <div class="p-3 bg-gray-700 border-b border-gray-600 relative">

@@ -33,8 +33,17 @@ function connectToSignalingServer() {
       await handleOffer(message.data, message.from, message.publicKey);
     } else if (message.type === "answer") {
       await handleAnswer(message.data, message.from, message.publicKey);
+    } else if (message.type === "relay-key-exchange") {
+      await handleRelayKeyExchange(message.from, message.publicKey);
+    } else if (message.type === "relay-key-exchange-ack") {
+      await handleRelayKeyExchangeAck(message.from, message.publicKey);
     } else if (message.type === "ice-candidate") {
       await localConnection.addIceCandidate(message.data);
+    } else if (message.type === "relay") {
+      await handleIncomingMessage(
+        base64ToUint8Array(message.payload),
+        message.from
+      );
     } else if (message.type === "server-shutdown") {
       showNotification(message.message, "error");
       socket.close();
@@ -60,5 +69,7 @@ function startChatWith(targetId, name) {
   currentTargetId = targetId;
   currentTargetName = name;
   chatWith.textContent = "Chatting with: " + name;
+  discussions[targetId] = getDiscussion(targetId);
+  renderMessages(targetId);
   createConnection();
 }

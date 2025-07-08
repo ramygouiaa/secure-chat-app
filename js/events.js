@@ -11,6 +11,18 @@ answerCallBtn.onclick = answerCall;
 declineCallBtn.onclick = declineCall;
 muteBtn.onclick = toggleMute;
 
+forceRelayToggle.addEventListener("change", (event) => {
+  forceRelay = event.target.checked;
+  showNotification(
+    `Forced relay is now ${forceRelay ? "ON" : "OFF"}. Reconnect to apply.`,
+    "info"
+  );
+  if (currentTargetId) {
+    // Re-establish connection with the new setting
+    createConnection();
+  }
+});
+
 contactSearchInput.addEventListener("input", filterContacts);
 
 messageInput.addEventListener("keypress", (e) => {
@@ -31,15 +43,55 @@ messageInput.addEventListener("input", () => {
   }
 });
 
+async function sendData(data) {
+  try {
+    const encryptedData = await encryptMessage(
+      JSON.stringify(data),
+      currentTargetId
+    );
+
+    if (
+      forceRelay ||
+      isRelayActive ||
+      !dataChannel ||
+      dataChannel.readyState !== "open"
+    ) {
+      // Fallback to WebSocket relay
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: "relay",
+            target: currentTargetId,
+            payload: arrayBufferToBase64(encryptedData),
+          })
+        );
+        console.log("Sent message via relay");
+      } else {
+        showNotification("Cannot send message. No connection.", "error");
+        console.error("Cannot send message. WebSocket is not open.");
+      }
+    } else {
+      // Send via WebRTC
+      dataChannel.send(encryptedData);
+      console.log("Sent message via WebRTC");
+    }
+  } catch (error) {
+    console.error("Error sending data:", error);
+    showNotification("Failed to send message.", "error");
+  }
+}
+
 async function sendMessage() {
   const text = messageInput.value.trim();
-  if (!text || !dataChannel || dataChannel.readyState !== "open") return;
+  if (!text || !currentTargetId) return;
 
   const message = {
     type: "text",
     content: text,
     timestamp: new Date().toISOString(),
   };
+
+  // Update UI immediately
   const discussion = getDiscussion(currentTargetId);
   discussion.messages.push({
     sender: "You",
@@ -47,84 +99,35 @@ async function sendMessage() {
     timestamp: message.timestamp,
   });
   saveDiscussion(currentTargetId, discussion);
-
-  const encryptedMessage = await encryptMessage(
-    JSON.stringify(message),
-    currentTargetId
-  );
-  dataChannel.send(encryptedMessage);
   renderMessages(currentTargetId);
   messageInput.value = "";
   sendBtn.classList.add("hidden");
   recordBtn.classList.remove("hidden");
+
+  await sendData(message);
 }
 
 function handleTyping() {
-  if (dataChannel && dataChannel.readyState === "open") {
-    const typingMessage = JSON.stringify({ type: "typing" });
-    encryptMessage(typingMessage, currentTargetId).then((encrypted) => {
-      dataChannel.send(encrypted);
-    });
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      const stopTypingMessage = JSON.stringify({ type: "stop-typing" });
-      encryptMessage(stopTypingMessage, currentTargetId).then((encrypted) => {
-        dataChannel.send(encrypted);
-      });
-    }, 1000);
-  }
+  if (!currentTargetId) return;
+  const typingMessage = { type: "typing" };
+  sendData(typingMessage);
+
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    const stopTypingMessage = { type: "stop-typing" };
+    sendData(stopTypingMessage);
+  }, 1000);
 }
 
 async function handleFileSelect(event) {
   const file = event.target.files[0];
-  if (!file) return;
+  if (!file || !currentTargetId) return;
 
   const CHUNK_SIZE = 16384; // 16KB
   const fileId = crypto.randomUUID();
-
   const timestamp = new Date().toISOString();
-  const startMessage = {
-    type: "file-start",
-    fileId: fileId,
-    fileName: file.name,
-    fileType: file.type,
-    timestamp: timestamp,
-  };
 
-  const sendFile = async () => {
-    dataChannel.send(
-      await encryptMessage(JSON.stringify(startMessage), currentTargetId)
-    );
-
-    const arrayBuffer = await file.arrayBuffer();
-    for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
-      const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
-      const chunkMessage = {
-        type: "file-chunk",
-        fileId: fileId,
-        data: arrayBufferToBase64(chunk),
-      };
-      dataChannel.send(
-        await encryptMessage(JSON.stringify(chunkMessage), currentTargetId)
-      );
-    }
-
-    const endMessage = { type: "file-end", fileId: fileId };
-    dataChannel.send(
-      await encryptMessage(JSON.stringify(endMessage), currentTargetId)
-    );
-  };
-
-  if (dataChannel && dataChannel.readyState === "open") {
-    sendFile();
-  } else {
-    const onDataChannelOpen = () => {
-      sendFile();
-      dataChannel.removeEventListener("open", onDataChannelOpen);
-    };
-    dataChannel.addEventListener("open", onDataChannelOpen);
-  }
-
+  // Update UI immediately
   const fileUrl = URL.createObjectURL(file);
   const discussion = getDiscussion(currentTargetId);
   discussion.messages.push({
@@ -134,6 +137,30 @@ async function handleFileSelect(event) {
   });
   saveDiscussion(currentTargetId, discussion);
   renderMessages(currentTargetId);
+
+  // Send file in chunks
+  const startMessage = {
+    type: "file-start",
+    fileId: fileId,
+    fileName: file.name,
+    fileType: file.type,
+    timestamp: timestamp,
+  };
+  await sendData(startMessage);
+
+  const arrayBuffer = await file.arrayBuffer();
+  for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
+    const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
+    const chunkMessage = {
+      type: "file-chunk",
+      fileId: fileId,
+      data: arrayBufferToBase64(chunk),
+    };
+    await sendData(chunkMessage);
+  }
+
+  const endMessage = { type: "file-end", fileId: fileId };
+  await sendData(endMessage);
 }
 
 async function toggleRecording() {
@@ -141,42 +168,44 @@ async function toggleRecording() {
     mediaRecorder.stop();
     recordBtn.innerHTML = '<i class="fas fa-microphone"></i>';
   } else {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        recordedChunks.push(event.data);
-      }
-    };
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(recordedChunks, { type: "audio/webm" });
-      recordedChunks = [];
-      const audioUrl = URL.createObjectURL(blob);
-      const timestamp = new Date().toISOString();
-      const discussion = getDiscussion(currentTargetId);
-      discussion.messages.push({
-        sender: "You",
-        audioUrl: audioUrl,
-        timestamp: timestamp,
-      });
-      saveDiscussion(currentTargetId, discussion);
-      renderMessages(currentTargetId);
-
-      const arrayBuffer = await blob.arrayBuffer();
-      const message = {
-        type: "voice",
-        data: arrayBufferToBase64(arrayBuffer),
-        timestamp: timestamp,
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
       };
-      const encryptedVoiceMessage = await encryptMessage(
-        JSON.stringify(message),
-        currentTargetId
-      );
-      dataChannel.send(encryptedVoiceMessage);
-    };
-    mediaRecorder.start();
-    recordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: "audio/webm" });
+        recordedChunks = [];
+        const timestamp = new Date().toISOString();
+
+        // Update UI immediately
+        const audioUrl = URL.createObjectURL(blob);
+        const discussion = getDiscussion(currentTargetId);
+        discussion.messages.push({
+          sender: "You",
+          audioUrl: audioUrl,
+          timestamp: timestamp,
+        });
+        saveDiscussion(currentTargetId, discussion);
+        renderMessages(currentTargetId);
+
+        // Send the voice message
+        const arrayBuffer = await blob.arrayBuffer();
+        const message = {
+          type: "voice",
+          data: arrayBufferToBase64(arrayBuffer),
+          timestamp: timestamp,
+        };
+        await sendData(message);
+      };
+      mediaRecorder.start();
+      recordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      showNotification("Could not access microphone.", "error");
+    }
   }
 }
