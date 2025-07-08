@@ -17,6 +17,10 @@
       .toggle-checkbox:checked + .toggle-label {
         background-color: #48bb78;
       }
+      #videoCallDialog {
+        resize: both;
+        overflow: auto;
+      }
     </style>
     <link
       rel="apple-touch-icon"
@@ -212,22 +216,34 @@
           </div>
         </div>
 
-        <!-- Video Call Elements -->
+        <!-- Video Call Dialog -->
         <div
-          id="videoContainer"
-          class="hidden relative flex-1 flex items-center justify-center"
+          id="videoCallDialog"
+          style="display: none"
+          class="absolute top-1/4 left-1/4 w-1/2 h-1/2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-30"
         >
-          <video
-            id="remoteVideo"
-            autoplay
-            class="w-auto h-auto max-w-full max-h-full"
-          ></video>
-          <video
-            id="localVideo"
-            autoplay
-            muted
-            class="absolute bottom-4 right-4 w-48 h-36 border-2 border-white rounded-lg"
-          ></video>
+          <div
+            id="videoCallHeader"
+            class="p-2 bg-gray-700 cursor-move rounded-t-lg"
+          >
+            <h3 class="text-sm font-bold">Video Call</h3>
+          </div>
+          <div
+            class="relative w-full bg-black"
+            style="height: calc(100% - 2.5rem)"
+          >
+            <video
+              id="remoteVideo"
+              autoplay
+              class="w-full h-full object-contain"
+            ></video>
+            <video
+              id="localVideo"
+              autoplay
+              muted
+              class="absolute bottom-2 right-2 w-1/4 h-1/4 border-2 border-white rounded-lg object-contain"
+            ></video>
+          </div>
         </div>
 
         <!-- Messages -->
