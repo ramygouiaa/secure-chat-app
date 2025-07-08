@@ -22,9 +22,9 @@ const incomingCallText = document.querySelector("#incomingCallModal h2");
 const remoteAudio = document.getElementById("remoteAudio");
 const dialingSound = document.getElementById("dialingSound");
 const ringingSound = document.getElementById("ringingSound");
-const startScreen = document.getElementById("startScreen");
-const startBtn = document.getElementById("startBtn");
 const contactSearchInput = document.getElementById("contactSearchInput");
+const welcomeModal = document.getElementById("welcomeModal");
+const enterChatBtn = document.getElementById("enterChatBtn");
 
 // Moved to top banner
 const voiceCallBtn = document.getElementById("voiceCallBtn");

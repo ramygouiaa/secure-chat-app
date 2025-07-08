@@ -11,7 +11,12 @@ async function init() {
   connectToSignalingServer();
 }
 
-startBtn.onclick = () => {
-  startScreen.classList.add("hidden");
+// Show the welcome modal on page load
+document.addEventListener("DOMContentLoaded", () => {
+  welcomeModal.classList.remove("hidden");
+});
+
+enterChatBtn.onclick = () => {
+  welcomeModal.classList.add("hidden");
   init();
 };
