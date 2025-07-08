@@ -26,6 +26,8 @@ const contactSearchInput = document.getElementById("contactSearchInput");
 const welcomeModal = document.getElementById("welcomeModal");
 const enterChatBtn = document.getElementById("enterChatBtn");
 const forceRelayToggle = document.getElementById("forceRelayToggle");
+const videoCallDialog = document.getElementById("videoCallDialog");
+const videoCallHeader = document.getElementById("videoCallHeader");
 
 // Moved to top banner
 const voiceCallBtn = document.getElementById("voiceCallBtn");

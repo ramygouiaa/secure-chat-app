@@ -314,8 +314,7 @@ async function initiateCall(video) {
       .forEach((track) => localConnection.addTrack(track, localStream));
 
     if (isVideoCall) {
-      videoContainer.classList.remove("hidden");
-      messagesContainer.classList.add("hidden");
+      videoCallDialog.style.display = "block";
     }
     hangUpBtn.classList.remove("hidden");
     muteBtn.classList.remove("hidden");
@@ -392,8 +391,7 @@ async function answerCall() {
       .forEach((track) => localConnection.addTrack(track, localStream));
 
     if (isVideoCall) {
-      videoContainer.classList.remove("hidden");
-      messagesContainer.classList.add("hidden");
+      videoCallDialog.style.display = "block";
     }
     hangUpBtn.classList.remove("hidden");
     muteBtn.classList.remove("hidden");
@@ -489,8 +487,8 @@ function handleHangUp(shouldCreateNewConnection = true) {
     localStream = null;
   }
 
-  videoContainer.classList.add("hidden");
-  messagesContainer.classList.remove("hidden");
+  videoCallDialog.style.display = "none";
+  resetVideoDialog();
   hangUpBtn.classList.add("hidden");
   muteBtn.classList.add("hidden");
   recordBtn.classList.remove("hidden");

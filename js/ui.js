@@ -155,3 +155,33 @@ function base64ToUint8Array(base64) {
   }
   return bytes;
 }
+
+// Make the video call dialog draggable
+let isDragging = false;
+let offsetX, offsetY;
+
+videoCallHeader.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  offsetX = e.clientX - videoCallDialog.offsetLeft;
+  offsetY = e.clientY - videoCallDialog.offsetTop;
+  videoCallDialog.style.cursor = "grabbing";
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (isDragging) {
+    videoCallDialog.style.left = `${e.clientX - offsetX}px`;
+    videoCallDialog.style.top = `${e.clientY - offsetY}px`;
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  isDragging = false;
+  videoCallDialog.style.cursor = "default";
+});
+
+function resetVideoDialog() {
+  videoCallDialog.style.top = "25%";
+  videoCallDialog.style.left = "25%";
+  videoCallDialog.style.width = "50%";
+  videoCallDialog.style.height = "50%";
+}
