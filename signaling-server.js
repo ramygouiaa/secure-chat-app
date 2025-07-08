@@ -16,6 +16,8 @@ const server = http.createServer((req, res) => {
     ".js": "text/javascript",
     ".css": "text/css",
     ".mp3": "audio/mpeg",
+    ".png": "image/png",
+    ".webmanifest": "application/manifest+json",
   };
 
   const contentType = mimeTypes[extname] || "application/octet-stream";
