@@ -25,6 +25,7 @@ const ringingSound = document.getElementById("ringingSound");
 const contactSearchInput = document.getElementById("contactSearchInput");
 const welcomeModal = document.getElementById("welcomeModal");
 const enterChatBtn = document.getElementById("enterChatBtn");
+const forceRelayToggle = document.getElementById("forceRelayToggle");
 
 // Moved to top banner
 const voiceCallBtn = document.getElementById("voiceCallBtn");
@@ -78,3 +79,5 @@ let incomingOffer = null;
 let callInitiatorId = null;
 let isVideoCall = false;
 let callStartTime = null;
+let isRelayActive = false;
+let forceRelay = false;

@@ -84,6 +84,46 @@ wss.on("connection", (ws, req) => {
         peers.get(clientId).name = data.name;
         console.log(`Client registered: ${data.name} (${clientId})`);
         broadcastPeerList();
+      } else if (
+        data.type === "relay" &&
+        data.target &&
+        peers.has(data.target)
+      ) {
+        const targetPeer = peers.get(data.target);
+        if (targetPeer.ws.readyState === WebSocket.OPEN) {
+          const relayMessage = JSON.stringify({
+            type: "relay",
+            from: clientId,
+            payload: data.payload,
+          });
+          targetPeer.ws.send(relayMessage);
+          console.log(`Relayed data from ${clientId} to ${data.target}`);
+        } else {
+          console.log(
+            `Cannot relay. Target peer ${data.target} is not connected.`
+          );
+        }
+      } else if (
+        (data.type === "relay-key-exchange" ||
+          data.type === "relay-key-exchange-ack") &&
+        data.target &&
+        peers.has(data.target)
+      ) {
+        const targetPeer = peers.get(data.target);
+        if (targetPeer.ws.readyState === WebSocket.OPEN) {
+          const relayMessage = JSON.stringify({
+            ...data,
+            from: clientId,
+          });
+          targetPeer.ws.send(relayMessage);
+          console.log(
+            `Relayed ${data.type} from ${clientId} to ${data.target}`
+          );
+        } else {
+          console.log(
+            `Cannot relay key exchange. Target peer ${data.target} is not connected.`
+          );
+        }
       } else if (data.target && peers.has(data.target)) {
         // Relay message to target peer with additional metadata
         const targetPeer = peers.get(data.target);
