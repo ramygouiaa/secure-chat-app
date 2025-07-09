@@ -316,8 +316,6 @@ async function initiateCall(video) {
     if (isVideoCall) {
       videoCallDialog.style.display = "block";
     }
-    hangUpBtn.classList.remove("hidden");
-    muteBtn.classList.remove("hidden");
     recordBtn.classList.add("hidden");
     playAudioWithLoop(dialingSound, 5);
 
@@ -393,8 +391,6 @@ async function answerCall() {
     if (isVideoCall) {
       videoCallDialog.style.display = "block";
     }
-    hangUpBtn.classList.remove("hidden");
-    muteBtn.classList.remove("hidden");
     recordBtn.classList.add("hidden");
 
     await localConnection.setRemoteDescription(
@@ -489,8 +485,6 @@ function handleHangUp(shouldCreateNewConnection = true) {
 
   videoCallDialog.style.display = "none";
   resetVideoDialog();
-  hangUpBtn.classList.add("hidden");
-  muteBtn.classList.add("hidden");
   recordBtn.classList.remove("hidden");
   remoteVideo.srcObject = null;
   remoteAudio.srcObject = null;

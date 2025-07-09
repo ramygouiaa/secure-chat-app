@@ -180,8 +180,8 @@ document.addEventListener("mouseup", () => {
 });
 
 function resetVideoDialog() {
-  videoCallDialog.style.top = "25%";
-  videoCallDialog.style.left = "25%";
-  videoCallDialog.style.width = "50%";
-  videoCallDialog.style.height = "50%";
+  videoCallDialog.style.top = "";
+  videoCallDialog.style.left = "";
+  videoCallDialog.style.width = "";
+  videoCallDialog.style.height = "";
 }
