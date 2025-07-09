@@ -32,6 +32,7 @@ const videoCallHeader = document.getElementById("videoCallHeader");
 // Moved to top banner
 const voiceCallBtn = document.getElementById("voiceCallBtn");
 const videoCallBtn = document.getElementById("videoCallBtn");
+
 const hangUpBtn = document.getElementById("hangUpBtn");
 const muteBtn = document.getElementById("muteBtn");
 

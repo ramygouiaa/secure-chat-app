@@ -5,11 +5,11 @@ fileInput.onchange = handleFileSelect;
 voiceCallBtn.onclick = () => initiateCall(false);
 videoCallBtn.onclick = () => initiateCall(true);
 hangUpBtn.onclick = hangUp;
+muteBtn.onclick = toggleMute;
 openSidebarBtn.onclick = () => sidebar.classList.remove("hidden");
 closeSidebarBtn.onclick = () => sidebar.classList.add("hidden");
 answerCallBtn.onclick = answerCall;
 declineCallBtn.onclick = declineCall;
-muteBtn.onclick = toggleMute;
 
 forceRelayToggle.addEventListener("change", (event) => {
   forceRelay = event.target.checked;
