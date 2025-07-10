@@ -86,17 +86,21 @@ async function sendMessage() {
   if (!text || !currentTargetId) return;
 
   const message = {
+    id: crypto.randomUUID(),
     type: "text",
     content: text,
     timestamp: new Date().toISOString(),
+    status: "sent",
   };
 
   // Update UI immediately
   const discussion = getDiscussion(currentTargetId);
   discussion.messages.push({
+    id: message.id,
     sender: "You",
     text: text,
     timestamp: message.timestamp,
+    status: "sent",
   });
   saveDiscussion(currentTargetId, discussion);
   renderMessages(currentTargetId);
@@ -126,14 +130,17 @@ async function handleFileSelect(event) {
   const CHUNK_SIZE = 16384; // 16KB
   const fileId = crypto.randomUUID();
   const timestamp = new Date().toISOString();
+  const messageId = crypto.randomUUID();
 
   // Update UI immediately
   const fileUrl = URL.createObjectURL(file);
   const discussion = getDiscussion(currentTargetId);
   discussion.messages.push({
+    id: messageId,
     sender: "You",
     file: { name: file.name, url: fileUrl },
     timestamp: timestamp,
+    status: "sent",
   });
   saveDiscussion(currentTargetId, discussion);
   renderMessages(currentTargetId);
@@ -141,6 +148,7 @@ async function handleFileSelect(event) {
   // Send file in chunks
   const startMessage = {
     type: "file-start",
+    messageId: messageId,
     fileId: fileId,
     fileName: file.name,
     fileType: file.type,
@@ -180,14 +188,17 @@ async function toggleRecording() {
         const blob = new Blob(recordedChunks, { type: "audio/webm" });
         recordedChunks = [];
         const timestamp = new Date().toISOString();
+        const messageId = crypto.randomUUID();
 
         // Update UI immediately
         const audioUrl = URL.createObjectURL(blob);
         const discussion = getDiscussion(currentTargetId);
         discussion.messages.push({
+          id: messageId,
           sender: "You",
           audioUrl: audioUrl,
           timestamp: timestamp,
+          status: "sent",
         });
         saveDiscussion(currentTargetId, discussion);
         renderMessages(currentTargetId);
@@ -195,6 +206,7 @@ async function toggleRecording() {
         // Send the voice message
         const arrayBuffer = await blob.arrayBuffer();
         const message = {
+          id: messageId,
           type: "voice",
           data: arrayBufferToBase64(arrayBuffer),
           timestamp: timestamp,

@@ -38,7 +38,15 @@ function connectToSignalingServer() {
     } else if (message.type === "relay-key-exchange-ack") {
       await handleRelayKeyExchangeAck(message.from, message.publicKey);
     } else if (message.type === "ice-candidate") {
-      await localConnection.addIceCandidate(message.data);
+      if (localConnection && localConnection.remoteDescription) {
+        await localConnection.addIceCandidate(message.data);
+      } else {
+        // Queue the candidate if the connection isn't ready
+        if (!iceCandidateQueues[message.from]) {
+          iceCandidateQueues[message.from] = [];
+        }
+        iceCandidateQueues[message.from].push(message.data);
+      }
     } else if (message.type === "relay") {
       await handleIncomingMessage(
         base64ToUint8Array(message.payload),
@@ -51,6 +59,11 @@ function connectToSignalingServer() {
       await handleCallOffer(message.data, message.from, true);
     } else if (message.type === "voice-offer") {
       await handleCallOffer(message.data, message.from, false);
+    } else if (message.type === "message-status") {
+      handleIncomingMessage(
+        new TextEncoder().encode(JSON.stringify(message)),
+        message.from
+      );
     } else if (
       message.type === "video-answer" ||
       message.type === "voice-answer"
@@ -73,3 +86,5 @@ function startChatWith(targetId, name) {
   renderMessages(targetId);
   createConnection();
 }
+
+const iceCandidateQueues = {};

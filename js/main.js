@@ -20,3 +20,9 @@ enterChatBtn.onclick = () => {
   welcomeModal.classList.add("hidden");
   init();
 };
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && currentTargetId) {
+    markMessagesAsRead(currentTargetId);
+  }
+});

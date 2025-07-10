@@ -75,6 +75,19 @@ function renderMessages(peerId) {
           hour: "2-digit",
           minute: "2-digit",
         });
+        const statusIcon =
+          msg.sender === "You"
+            ? `
+          <span class="text-xs text-gray-400 ml-1">
+            ${
+              msg.status === "read"
+                ? '<i class="fas fa-check-double text-blue-400"></i>'
+                : msg.status === "delivered"
+                ? '<i class="fas fa-check-double"></i>'
+                : '<i class="fas fa-check"></i>'
+            }
+          </span>`
+            : "";
         return `
       <div class="flex ${
         msg.sender === "You" ? "justify-end" : "justify-start"
@@ -91,7 +104,10 @@ function renderMessages(peerId) {
               ? `<a href="${msg.file.url}" download="${msg.file.name}" class="text-blue-300 hover:underline">${msg.file.name}</a>`
               : ""
           }
-          <div class="text-xs text-gray-400 text-right mt-1">${time}</div>
+          <div class="text-xs text-gray-400 text-right mt-1">
+            ${time}
+            ${statusIcon}
+          </div>
         </div>
       </div>
     `;
@@ -133,7 +149,28 @@ function startChatWith(peerId, peerName) {
   chatWith.textContent = "Chatting with: " + currentTargetName;
   discussions[peerId] = getDiscussion(peerId);
   renderMessages(peerId);
+  markMessagesAsRead(peerId);
   createConnection();
+}
+function markMessagesAsRead(peerId) {
+  const discussion = getDiscussion(peerId);
+  const unreadMessageIds = discussion.messages
+    .filter((m) => m.sender !== "You" && m.status !== "read")
+    .map((m) => m.id);
+
+  if (unreadMessageIds.length > 0) {
+    discussion.messages.forEach((m) => {
+      if (unreadMessageIds.includes(m.id)) {
+        m.status = "read";
+      }
+    });
+    saveDiscussion(peerId, discussion);
+    sendData({
+      type: "message-status",
+      status: "read",
+      messageIds: unreadMessageIds,
+    });
+  }
 }
 
 function arrayBufferToBase64(buffer) {
