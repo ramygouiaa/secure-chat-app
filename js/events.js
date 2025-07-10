@@ -185,6 +185,7 @@ async function toggleRecording() {
         }
       };
       mediaRecorder.onstop = async () => {
+        mediaRecorder.stream.getTracks().forEach((track) => track.stop());
         const blob = new Blob(recordedChunks, { type: "audio/webm" });
         recordedChunks = [];
         const timestamp = new Date().toISOString();
