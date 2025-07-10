@@ -124,6 +124,15 @@ wss.on("connection", (ws, req) => {
             `Cannot relay key exchange. Target peer ${data.target} is not connected.`
           );
         }
+      } else if (data.type === "message-status") {
+        const targetPeer = peers.get(data.target);
+        if (targetPeer && targetPeer.ws.readyState === WebSocket.OPEN) {
+          const relayMessage = JSON.stringify({
+            ...data,
+            from: clientId,
+          });
+          targetPeer.ws.send(relayMessage);
+        }
       } else if (data.target && peers.has(data.target)) {
         // Relay message to target peer with additional metadata
         const targetPeer = peers.get(data.target);

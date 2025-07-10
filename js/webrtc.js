@@ -86,6 +86,14 @@ async function handleAnswer(answer, fromId, publicKey) {
   sharedSecrets[fromId] = sharedSecret;
   console.log(`Shared secret established with ${peers[fromId]}`);
   await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
+
+  // Process any queued ICE candidates
+  if (iceCandidateQueues[fromId]) {
+    for (const candidate of iceCandidateQueues[fromId]) {
+      await localConnection.addIceCandidate(candidate);
+    }
+    delete iceCandidateQueues[fromId];
+  }
 }
 
 async function initiateRelayKeyExchange() {
@@ -180,6 +188,14 @@ async function handleOffer(offer, fromId, publicKey) {
   const answer = await localConnection.createAnswer();
   await localConnection.setLocalDescription(answer);
 
+  // Process any queued ICE candidates
+  if (iceCandidateQueues[fromId]) {
+    for (const candidate of iceCandidateQueues[fromId]) {
+      await localConnection.addIceCandidate(candidate);
+    }
+    delete iceCandidateQueues[fromId];
+  }
+
   const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
   socket.send(
     JSON.stringify({
@@ -215,10 +231,15 @@ function activateRelayFallback() {
   // No need to close the localConnection, let it keep trying to connect
 }
 
-async function handleIncomingMessage(encryptedData, senderId) {
+async function handleIncomingMessage(data, senderId) {
   try {
-    const decryptedData = await decryptMessage(encryptedData, senderId);
-    const message = JSON.parse(new TextDecoder().decode(decryptedData));
+    let message;
+    try {
+      message = JSON.parse(new TextDecoder().decode(data));
+    } catch (error) {
+      const decryptedData = await decryptMessage(data, senderId);
+      message = JSON.parse(new TextDecoder().decode(decryptedData));
+    }
     const discussion = getDiscussion(senderId);
 
     if (message.type === "typing") {
@@ -234,8 +255,19 @@ async function handleIncomingMessage(encryptedData, senderId) {
           name: message.fileName,
           type: message.fileType,
           timestamp: message.timestamp,
+          messageId: message.messageId,
         },
       });
+      if (senderId !== clientId) {
+        socket.send(
+          JSON.stringify({
+            type: "message-status",
+            status: "delivered",
+            messageIds: [message.messageId],
+            target: senderId,
+          })
+        );
+      }
     } else if (message.type === "file-chunk") {
       const fileData = fileChunks.get(message.fileId);
       if (fileData) {
@@ -250,6 +282,7 @@ async function handleIncomingMessage(encryptedData, senderId) {
         });
         const fileUrl = URL.createObjectURL(fileBlob);
         discussion.messages.push({
+          id: fileData.meta.messageId,
           sender: peers[senderId],
           file: { name: fileData.meta.name, url: fileUrl },
           timestamp: fileData.meta.timestamp,
@@ -260,24 +293,56 @@ async function handleIncomingMessage(encryptedData, senderId) {
       }
     } else if (message.type === "text") {
       discussion.messages.push({
+        id: message.id,
         sender: peers[senderId],
         text: message.content,
         timestamp: message.timestamp,
       });
       saveDiscussion(senderId, discussion);
       renderMessages(senderId);
+      if (senderId !== clientId) {
+        socket.send(
+          JSON.stringify({
+            type: "message-status",
+            status: "delivered",
+            messageIds: [message.id],
+            target: senderId,
+          })
+        );
+      }
     } else if (message.type === "voice") {
       const audioBlob = new Blob([base64ToUint8Array(message.data)], {
         type: "audio/webm",
       });
       const audioUrl = URL.createObjectURL(audioBlob);
       discussion.messages.push({
+        id: message.id,
         sender: peers[senderId],
         audioUrl: audioUrl,
         timestamp: message.timestamp,
       });
       saveDiscussion(senderId, discussion);
       renderMessages(senderId);
+      if (senderId !== clientId) {
+        socket.send(
+          JSON.stringify({
+            type: "message-status",
+            status: "delivered",
+            messageIds: [message.id],
+            target: senderId,
+          })
+        );
+      }
+    } else if (message.type === "message-status") {
+      const discussion = getDiscussion(currentTargetId);
+      message.messageIds.forEach((messageId) => {
+        const msg = discussion.messages.find((m) => m.id === messageId);
+        if (msg) {
+          msg.status = message.status;
+        }
+      });
+      saveDiscussion(currentTargetId, discussion);
+      renderMessages(currentTargetId);
     }
   } catch (error) {
     console.error("Error processing incoming message:", error);
