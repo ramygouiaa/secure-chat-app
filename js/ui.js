@@ -45,9 +45,22 @@ function filterContacts() {
           </div>
           <div class="flex-1">
             <div class="text-sm font-medium">${peer.name}</div>
-            <div class="text-xs text-gray-400">Online</div>
+            <div class="text-xs text-gray-400" id="status-${peer.id}">
+              ${
+                peerState[peer.id] && peerState[peer.id].keyExchangeComplete
+                  ? "Securely Connected"
+                  : "Connecting..."
+              }
+            </div>
           </div>
-          <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+          <div
+            id="status-dot-${peer.id}"
+            class="w-2 h-2 ${
+              peerState[peer.id] && peerState[peer.id].keyExchangeComplete
+                ? "bg-green-500"
+                : "bg-yellow-500"
+            } rounded-full"
+          ></div>
         `;
         item.onclick = () => startChatWith(peer.id, peer.name);
         contactsList.appendChild(item);
@@ -118,6 +131,20 @@ function renderMessages(peerId) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+function refreshContactStatus(peerId) {
+  const statusElement = document.getElementById(`status-${peerId}`);
+  const statusDotElement = document.getElementById(`status-dot-${peerId}`);
+
+  if (statusElement && statusDotElement && peerState[peerId]) {
+    statusElement.textContent = peerState[peerId].keyExchangeComplete
+      ? "Securely Connected"
+      : "Connecting...";
+    statusDotElement.className = `w-2 h-2 ${
+      peerState[peerId].keyExchangeComplete ? "bg-green-500" : "bg-yellow-500"
+    } rounded-full`;
+  }
+}
+
 function getDiscussion(peerId) {
   const discussion = sessionStorage.getItem(peerId);
   return discussion ? JSON.parse(discussion) : { messages: [], calls: [] };
@@ -127,13 +154,8 @@ function saveDiscussion(peerId, discussion) {
   sessionStorage.setItem(peerId, JSON.stringify(discussion));
 }
 
-function startChatWith(peerId, peerName) {
-  currentTargetId = peerId;
-  currentTargetName = peerName;
-  chatWith.textContent = "Chatting with: " + currentTargetName;
-  discussions[peerId] = getDiscussion(peerId);
-  renderMessages(peerId);
-  createConnection();
+function updateConnectionStatus(status) {
+  connectionStatus.textContent = status;
 }
 
 function arrayBufferToBase64(buffer) {

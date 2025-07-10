@@ -4,7 +4,6 @@ fileBtn.onclick = () => fileInput.click();
 fileInput.onchange = handleFileSelect;
 voiceCallBtn.onclick = () => initiateCall(false);
 videoCallBtn.onclick = () => initiateCall(true);
-hangUpBtn.onclick = hangUp;
 muteBtn.onclick = toggleMute;
 openSidebarBtn.onclick = () => sidebar.classList.remove("hidden");
 closeSidebarBtn.onclick = () => sidebar.classList.add("hidden");
@@ -19,7 +18,7 @@ forceRelayToggle.addEventListener("change", (event) => {
   );
   if (currentTargetId) {
     // Re-establish connection with the new setting
-    createConnection();
+    connectToSfu();
   }
 });
 
@@ -44,36 +43,41 @@ messageInput.addEventListener("input", () => {
 });
 
 async function sendData(data) {
+  if (!currentTargetId) {
+    showNotification("Please select a contact to chat with.", "warning");
+    return;
+  }
+
+  if (
+    !peerState[currentTargetId] ||
+    !peerState[currentTargetId].keyExchangeComplete
+  ) {
+    showNotification(
+      "Secure connection not established yet. Please wait.",
+      "warning"
+    );
+    return;
+  }
+
   try {
     const encryptedData = await encryptMessage(
       JSON.stringify(data),
       currentTargetId
     );
 
-    if (
-      forceRelay ||
-      isRelayActive ||
-      !dataChannel ||
-      dataChannel.readyState !== "open"
-    ) {
-      // Fallback to WebSocket relay
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(
-          JSON.stringify({
-            type: "relay",
-            target: currentTargetId,
-            payload: arrayBufferToBase64(encryptedData),
-          })
-        );
-        console.log("Sent message via relay");
-      } else {
-        showNotification("Cannot send message. No connection.", "error");
-        console.error("Cannot send message. WebSocket is not open.");
-      }
+    // Always use WebSocket relay for messages and files
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "relay",
+          target: currentTargetId,
+          payload: arrayBufferToBase64(encryptedData),
+        })
+      );
+      console.log("Sent message via relay");
     } else {
-      // Send via WebRTC
-      dataChannel.send(encryptedData);
-      console.log("Sent message via WebRTC");
+      showNotification("Cannot send message. No connection.", "error");
+      console.error("Cannot send message. WebSocket is not open.");
     }
   } catch (error) {
     console.error("Error sending data:", error);

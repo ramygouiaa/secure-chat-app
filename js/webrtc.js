@@ -1,371 +1,49 @@
-function createConnection() {
-  if (forceRelay) {
-    activateRelayFallback();
-    initiateRelayKeyExchange();
-    return;
-  }
-  localConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  isRelayActive = false; // Reset relay state on new connection
-
-  const connectionTimeout = setTimeout(() => {
-    if (
-      localConnection.connectionState !== "connected" &&
-      localConnection.connectionState !== "completed"
-    ) {
-      console.warn("WebRTC connection timed out. Falling back to relay.");
-      activateRelayFallback();
-    }
-  }, 15000); // 15-second timeout
-
-  dataChannel = localConnection.createDataChannel("chat");
-  setupDataChannel(dataChannel);
-
-  localConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      socket.send(
-        JSON.stringify({
-          type: "ice-candidate",
-          data: event.candidate,
-          target: currentTargetId,
-        })
-      );
-    }
-  };
-
-  localConnection.ondatachannel = (event) => {
-    setupDataChannel(event.channel);
-  };
-
-  localConnection.onconnectionstatechange = () => {
-    connectionStatus.textContent = localConnection.connectionState;
-    if (
-      localConnection.connectionState === "failed" ||
-      localConnection.connectionState === "disconnected"
-    ) {
-      console.error("WebRTC connection failed. Falling back to relay.");
-      activateRelayFallback();
-    } else if (localConnection.connectionState === "connected") {
-      clearTimeout(connectionTimeout);
-      console.log("WebRTC connection established successfully.");
-      isRelayActive = false;
-      connectionStatus.textContent = "Connected (WebRTC)";
-    }
-  };
-
-  localConnection.ontrack = (event) => {
-    const stream = event.streams[0];
-    if (stream.getVideoTracks().length > 0) {
-      remoteVideo.srcObject = stream;
-    } else {
-      remoteAudio.srcObject = stream;
-    }
-  };
-
-  localConnection
-    .createOffer()
-    .then((offer) => localConnection.setLocalDescription(offer))
-    .then(async () => {
-      const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
-      socket.send(
-        JSON.stringify({
-          type: "offer",
-          data: localConnection.localDescription,
-          publicKey: exportedPublicKey,
-          target: currentTargetId,
-        })
-      );
-    });
-}
-
-async function handleAnswer(answer, fromId, publicKey) {
-  const remotePublicKey = await importPublicKey(publicKey);
-  const sharedSecret = await deriveSharedSecret(
-    myKeys.privateKey,
-    remotePublicKey
-  );
-  sharedSecrets[fromId] = sharedSecret;
-  console.log(`Shared secret established with ${peers[fromId]}`);
-  await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
-}
-
-async function initiateRelayKeyExchange() {
-  const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
-  socket.send(
-    JSON.stringify({
-      type: "relay-key-exchange",
-      publicKey: exportedPublicKey,
-      target: currentTargetId,
-    })
-  );
-}
-
-async function handleRelayKeyExchange(fromId, publicKey) {
-  const remotePublicKey = await importPublicKey(publicKey);
-  const sharedSecret = await deriveSharedSecret(
-    myKeys.privateKey,
-    remotePublicKey
-  );
-  sharedSecrets[fromId] = sharedSecret;
-  console.log(`Shared secret established via relay with ${peers[fromId]}`);
-
-  // Acknowledge the key exchange
-  const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
-  socket.send(
-    JSON.stringify({
-      type: "relay-key-exchange-ack",
-      publicKey: exportedPublicKey,
-      target: fromId,
-    })
-  );
-  connectionStatus.textContent = "Connected (Relay)";
-  renderMessages(fromId);
-}
-
-async function handleRelayKeyExchangeAck(fromId, publicKey) {
-  const remotePublicKey = await importPublicKey(publicKey);
-  const sharedSecret = await deriveSharedSecret(
-    myKeys.privateKey,
-    remotePublicKey
-  );
-  sharedSecrets[fromId] = sharedSecret;
-  console.log(`Shared secret acknowledged via relay with ${peers[fromId]}`);
-  connectionStatus.textContent = "Connected (Relay)";
-  renderMessages(fromId);
-}
-
-async function handleOffer(offer, fromId, publicKey) {
-  if (forceRelay) {
-    console.log("Ignoring WebRTC offer while in forced relay mode.");
-    return;
-  }
-  currentTargetId = fromId;
-  currentTargetName = peers[fromId];
-  chatWith.textContent = "Chatting with: " + currentTargetName;
-
-  localConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-  localConnection.ondatachannel = (event) => setupDataChannel(event.channel);
-
-  localConnection.ontrack = (event) => {
-    const stream = event.streams[0];
-    if (stream.getVideoTracks().length > 0) {
-      remoteVideo.srcObject = stream;
-    } else {
-      remoteAudio.srcObject = stream;
-    }
-  };
-
-  localConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      socket.send(
-        JSON.stringify({
-          type: "ice-candidate",
-          data: event.candidate,
-          target: currentTargetId,
-        })
-      );
-    }
-  };
-
-  await localConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-  const remotePublicKey = await importPublicKey(publicKey);
-  const sharedSecret = await deriveSharedSecret(
-    myKeys.privateKey,
-    remotePublicKey
-  );
-  sharedSecrets[fromId] = sharedSecret;
-  console.log(`Shared secret established with ${peers[fromId]}`);
-
-  const answer = await localConnection.createAnswer();
-  await localConnection.setLocalDescription(answer);
-
-  const exportedPublicKey = await exportPublicKey(myKeys.publicKey);
-  socket.send(
-    JSON.stringify({
-      type: "answer",
-      data: answer,
-      publicKey: exportedPublicKey,
-      target: currentTargetId,
-    })
-  );
-}
-
-function setupDataChannel(channel) {
-  dataChannel = channel;
-  dataChannel.onopen = () => {
-    connectionStatus.textContent = "Connected (WebRTC)";
-    isRelayActive = false;
-    renderMessages(currentTargetId);
-  };
-  dataChannel.onmessage = (event) => {
-    handleIncomingMessage(event.data, currentTargetId);
-  };
-  dataChannel.onclose = () => {
-    console.warn("Data channel closed.");
-    // activateRelayFallback(); // Fallback if data channel closes unexpectedly
-  };
-}
-
-function activateRelayFallback() {
-  if (isRelayActive) return; // Already active
-  isRelayActive = true;
-  connectionStatus.textContent = "Connected (Relay)";
-  showNotification("WebRTC connection failed. Using relay server.", "warning");
-  // No need to close the localConnection, let it keep trying to connect
-}
-
-async function handleIncomingMessage(encryptedData, senderId) {
-  try {
-    const decryptedData = await decryptMessage(encryptedData, senderId);
-    const message = JSON.parse(new TextDecoder().decode(decryptedData));
-    const discussion = getDiscussion(senderId);
-
-    if (message.type === "typing") {
-      connectionStatus.textContent = "Typing...";
-    } else if (message.type === "stop-typing") {
-      connectionStatus.textContent = isRelayActive
-        ? "Connected (Relay)"
-        : "Connected (WebRTC)";
-    } else if (message.type === "file-start") {
-      fileChunks.set(message.fileId, {
-        chunks: [],
-        meta: {
-          name: message.fileName,
-          type: message.fileType,
-          timestamp: message.timestamp,
-        },
-      });
-    } else if (message.type === "file-chunk") {
-      const fileData = fileChunks.get(message.fileId);
-      if (fileData) {
-        const chunk = base64ToUint8Array(message.data);
-        fileData.chunks.push(chunk);
-      }
-    } else if (message.type === "file-end") {
-      const fileData = fileChunks.get(message.fileId);
-      if (fileData) {
-        const fileBlob = new Blob(fileData.chunks, {
-          type: fileData.meta.type,
-        });
-        const fileUrl = URL.createObjectURL(fileBlob);
-        discussion.messages.push({
-          sender: peers[senderId],
-          file: { name: fileData.meta.name, url: fileUrl },
-          timestamp: fileData.meta.timestamp,
-        });
-        saveDiscussion(senderId, discussion);
-        renderMessages(senderId);
-        fileChunks.delete(message.fileId);
-      }
-    } else if (message.type === "text") {
-      discussion.messages.push({
-        sender: peers[senderId],
-        text: message.content,
-        timestamp: message.timestamp,
-      });
-      saveDiscussion(senderId, discussion);
-      renderMessages(senderId);
-    } else if (message.type === "voice") {
-      const audioBlob = new Blob([base64ToUint8Array(message.data)], {
-        type: "audio/webm",
-      });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      discussion.messages.push({
-        sender: peers[senderId],
-        audioUrl: audioUrl,
-        timestamp: message.timestamp,
-      });
-      saveDiscussion(senderId, discussion);
-      renderMessages(senderId);
-    }
-  } catch (error) {
-    console.error("Error processing incoming message:", error);
-  }
-}
-
 async function initiateCall(video) {
-  callStartTime = new Date();
   if (!currentTargetId) {
     showNotification("Please select a contact to call.", "warning");
     return;
   }
-  if (
-    !isRelayActive &&
-    (!localConnection || localConnection.connectionState !== "connected")
-  ) {
-    showNotification(
-      "You must be connected to a peer to start a call.",
-      "error"
-    );
-    return;
-  }
+  console.log(`Initiating ${video ? "video" : "voice"} call...`);
 
   isVideoCall = video;
+  callStartTime = new Date();
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      video: isVideoCall,
+      video: isVideoCall
+        ? {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          }
+        : false,
       audio: true,
     });
     localVideo.srcObject = localStream;
-    localStream
-      .getTracks()
-      .forEach((track) => localConnection.addTrack(track, localStream));
-
-    if (isVideoCall) {
-      videoCallDialog.style.display = "block";
-    }
+    videoCallDialog.style.display = "block";
     recordBtn.classList.add("hidden");
-    playAudioWithLoop(dialingSound, 5);
 
-    const offer = await localConnection.createOffer();
-    await localConnection.setLocalDescription(offer);
+    // New SFU call flow
+    updateConnectionStatus("Calling...");
 
+    // Let the other peer know we're calling
     socket.send(
       JSON.stringify({
-        type: isVideoCall ? "video-offer" : "voice-offer",
-        data: offer,
+        type: "initiate-call",
         target: currentTargetId,
+        video: isVideoCall,
       })
     );
 
-    showNotification(`Calling ${currentTargetName}...`, "info");
+    // This will trigger the chain of events to create transport and produce
+    await createSendTransport();
   } catch (err) {
-    console.error(
-      `Error starting ${isVideoCall ? "video" : "voice"} call:`,
-      err
-    );
+    console.error("Error initiating call:", err);
     showNotification(
-      `Could not start ${
-        isVideoCall ? "video" : "voice"
-      } call. Check camera/mic permissions.`,
+      "Could not start call. Check camera/mic permissions.",
       "error"
     );
+    hangUp();
   }
-}
-
-async function handleCallOffer(offer, fromId, isVideo) {
-  if (
-    localConnection &&
-    localConnection.connectionState === "connected" &&
-    localStream
-  ) {
-    console.log("Already in a call, rejecting new offer.");
-    socket.send(JSON.stringify({ type: "decline-call", target: fromId }));
-    return;
-  }
-
-  incomingOffer = offer;
-  callInitiatorId = fromId;
-  isVideoCall = isVideo;
-
-  incomingCallText.textContent = isVideo
-    ? "Incoming Video Call"
-    : "Incoming Voice Call";
-  callerName.textContent = peers[fromId] || "Unknown";
-  incomingCallModal.classList.remove("hidden");
-  playAudioWithLoop(ringingSound, 5);
 }
 
 async function answerCall() {
@@ -373,59 +51,73 @@ async function answerCall() {
   stopAudio(ringingSound);
   callStartTime = new Date();
 
-  if (!localConnection) {
-    console.error("No local connection to answer call");
-    return;
-  }
-
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: isVideoCall,
       audio: true,
     });
     localVideo.srcObject = localStream;
-    localStream
-      .getTracks()
-      .forEach((track) => localConnection.addTrack(track, localStream));
 
     if (isVideoCall) {
       videoCallDialog.style.display = "block";
     }
     recordBtn.classList.add("hidden");
 
-    await localConnection.setRemoteDescription(
-      new RTCSessionDescription(incomingOffer)
-    );
-    const answer = await localConnection.createAnswer();
-    await localConnection.setLocalDescription(answer);
+    updateConnectionStatus("Connecting to media server...");
 
-    socket.send(
-      JSON.stringify({
-        type: isVideoCall ? "video-answer" : "voice-answer",
-        data: answer,
-        target: callInitiatorId,
-      })
-    );
-
-    currentTargetId = callInitiatorId;
-    currentTargetName = peers[callInitiatorId];
-    chatWith.textContent = "Chatting with: " + currentTargetName;
-
-    incomingOffer = null;
-    callInitiatorId = null;
+    await createSendTransport();
+    await createRecvTransport();
   } catch (err) {
     console.error("Error answering call:", err);
     showNotification(
       "Could not answer call. Check camera/mic permissions.",
       "error"
     );
+    handleHangUp(false);
   }
 }
 
-async function handleCallAnswer(answer) {
-  await localConnection.setRemoteDescription(new RTCSessionDescription(answer));
-  stopAudio(dialingSound);
-  showNotification("Call connected!", "info");
+function handleIncomingCall(fromId, fromName, isVideo) {
+  // If we're already in a call, we can't accept another.
+  if (localStream) {
+    console.log("Already in a call, rejecting new call from", fromName);
+    // Optionally, send a 'busy' signal back to the caller.
+    // socket.send(JSON.stringify({ type: 'busy', target: fromId }));
+    return;
+  }
+
+  console.log(`Incoming ${isVideo ? "video" : "voice"} call from ${fromName}`);
+
+  // Set global state for the incoming call
+  callInitiatorId = fromId;
+  isVideoCall = isVideo;
+  currentTargetId = fromId; // Set the target to the caller
+
+  // Update and show the modal
+  incomingCallText.textContent = isVideo
+    ? "Incoming Video Call"
+    : "Incoming Voice Call";
+  callerName.textContent = fromName || "Unknown";
+  incomingCallModal.classList.remove("hidden");
+  playAudioWithLoop(ringingSound, 5);
+}
+
+// This function will be called from signaling.js when a new producer is announced
+async function handleNewProducer(producerId) {
+  console.log("New producer detected:", producerId);
+  if (!recvTransport) {
+    // If we are not yet set up to receive, create a receive transport
+    await createRecvTransport();
+  }
+  // Consume the new producer's stream
+  await consume(producerId);
+  updateConnectionStatus("Call in progress...");
+}
+
+function handleCallDeclined(fromId) {
+  showNotification(`${peers[fromId] || "The user"} declined the call.`);
+  updateConnectionStatus("Call declined.");
+  handleHangUp(false);
 }
 
 function declineCall() {
@@ -439,6 +131,7 @@ function declineCall() {
   );
   incomingOffer = null;
   callInitiatorId = null;
+  updateConnectionStatus("Call declined.");
 }
 
 function hangUp() {
@@ -490,15 +183,28 @@ function handleHangUp(shouldCreateNewConnection = true) {
   remoteAudio.srcObject = null;
   localVideo.srcObject = null;
 
-  if (localConnection) {
-    localConnection.close();
-    localConnection = null;
+  if (sendTransport) {
+    sendTransport.close();
+    sendTransport = null;
   }
+  if (recvTransport) {
+    recvTransport.close();
+    recvTransport = null;
+  }
+  if (videoProducer) {
+    videoProducer.close();
+    videoProducer = null;
+  }
+  if (audioProducer) {
+    audioProducer.close();
+    audioProducer = null;
+  }
+  // Close all consumers
+  consumers.forEach((consumer) => consumer.close());
+  consumers = new Map();
 
-  if (shouldCreateNewConnection && currentTargetId) {
-    createConnection();
-  }
   showNotification("Call ended.", "info");
+  updateConnectionStatus("Secure connection established.");
 }
 
 function toggleMute() {
