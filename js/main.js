@@ -22,7 +22,13 @@ enterChatBtn.onclick = () => {
 };
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && currentTargetId) {
-    markMessagesAsRead(currentTargetId);
+  if (manualStatusOverride) return;
+  if (document.visibilityState === "visible") {
+    sendStatusUpdate("Online");
+    if (currentTargetId) {
+      markMessagesAsRead(currentTargetId);
+    }
+  } else {
+    sendStatusUpdate("Away");
   }
 });

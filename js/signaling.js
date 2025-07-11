@@ -87,4 +87,10 @@ function startChatWith(targetId, name) {
   createConnection();
 }
 
+function sendStatusUpdate(status) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "status-update", status: status }));
+  }
+}
+
 const iceCandidateQueues = {};

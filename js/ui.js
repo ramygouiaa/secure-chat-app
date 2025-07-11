@@ -27,9 +27,17 @@ function filterContacts() {
   peers = {};
   const searchTerm = contactSearchInput.value.toLowerCase();
 
+  const statusColors = {
+    Online: "bg-green-500",
+    Away: "bg-yellow-500",
+    "In call": "bg-red-500",
+    "Do Not Disturb": "bg-orange-500",
+    Offline: "bg-gray-500",
+  };
+
   allPeers.forEach((peer) => {
     if (peer.id !== clientId) {
-      peers[peer.id] = peer.name;
+      peers[peer.id] = peer.name; // Still needed for chat context
       if (!sessionStorage.getItem(peer.id)) {
         saveDiscussion(peer.id, { messages: [], calls: [] });
       }
@@ -39,15 +47,16 @@ function filterContacts() {
         item.className =
           "contact-item flex items-center gap-3 p-2 hover:bg-gray-700 rounded cursor-pointer";
         item.dataset.id = peer.id;
+        const statusColor = statusColors[peer.status] || "bg-gray-500";
         item.innerHTML = `
           <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
             <span class="text-white text-sm">${peer.name.charAt(0)}</span>
           </div>
           <div class="flex-1">
             <div class="text-sm font-medium">${peer.name}</div>
-            <div class="text-xs text-gray-400">Online</div>
+            <div class="text-xs text-gray-400">${peer.status || "Offline"}</div>
           </div>
-          <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+          <div class="w-2 h-2 ${statusColor} rounded-full"></div>
         `;
         item.onclick = () => startChatWith(peer.id, peer.name);
         contactsList.appendChild(item);
