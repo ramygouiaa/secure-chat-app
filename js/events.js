@@ -6,10 +6,21 @@ voiceCallBtn.onclick = () => initiateCall(false);
 videoCallBtn.onclick = () => initiateCall(true);
 hangUpBtn.onclick = hangUp;
 muteBtn.onclick = toggleMute;
+voiceHangUpBtn.onclick = hangUp;
+voiceMuteBtn.onclick = toggleMute;
 openSidebarBtn.onclick = () => sidebar.classList.remove("hidden");
 closeSidebarBtn.onclick = () => sidebar.classList.add("hidden");
 answerCallBtn.onclick = answerCall;
 declineCallBtn.onclick = declineCall;
+statusSelector.onchange = (e) => {
+  const status = e.target.value;
+  if (status === "Online") {
+    manualStatusOverride = false;
+  } else {
+    manualStatusOverride = true;
+  }
+  sendStatusUpdate(status);
+};
 
 forceRelayToggle.addEventListener("change", (event) => {
   forceRelay = event.target.checked;

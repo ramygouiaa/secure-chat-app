@@ -28,10 +28,13 @@ const enterChatBtn = document.getElementById("enterChatBtn");
 const forceRelayToggle = document.getElementById("forceRelayToggle");
 const videoCallDialog = document.getElementById("videoCallDialog");
 const videoCallHeader = document.getElementById("videoCallHeader");
+const statusSelector = document.getElementById("statusSelector");
 
 // Moved to top banner
 const voiceCallBtn = document.getElementById("voiceCallBtn");
 const videoCallBtn = document.getElementById("videoCallBtn");
+const voiceMuteBtn = document.getElementById("voiceMuteBtn");
+const voiceHangUpBtn = document.getElementById("voiceHangUpBtn");
 
 const hangUpBtn = document.getElementById("hangUpBtn");
 const muteBtn = document.getElementById("muteBtn");
@@ -84,3 +87,4 @@ let isVideoCall = false;
 let callStartTime = null;
 let isRelayActive = false;
 let forceRelay = false;
+let manualStatusOverride = false;

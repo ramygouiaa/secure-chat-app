@@ -350,6 +350,9 @@ async function handleIncomingMessage(data, senderId) {
 }
 
 async function initiateCall(video) {
+  if (!manualStatusOverride) {
+    sendStatusUpdate("In call");
+  }
   callStartTime = new Date();
   if (!currentTargetId) {
     showNotification("Please select a contact to call.", "warning");
@@ -380,6 +383,11 @@ async function initiateCall(video) {
 
     if (isVideoCall) {
       videoCallDialog.style.display = "block";
+    } else {
+      voiceCallBtn.classList.add("hidden");
+      videoCallBtn.classList.add("hidden");
+      voiceMuteBtn.classList.remove("hidden");
+      voiceHangUpBtn.classList.remove("hidden");
     }
     recordBtn.classList.add("hidden");
     playAudioWithLoop(dialingSound, 5);
@@ -437,6 +445,9 @@ async function answerCall() {
   incomingCallModal.classList.add("hidden");
   stopAudio(ringingSound);
   callStartTime = new Date();
+  if (!manualStatusOverride) {
+    sendStatusUpdate("In call");
+  }
 
   if (!localConnection) {
     console.error("No local connection to answer call");
@@ -455,6 +466,11 @@ async function answerCall() {
 
     if (isVideoCall) {
       videoCallDialog.style.display = "block";
+    } else {
+      voiceCallBtn.classList.add("hidden");
+      videoCallBtn.classList.add("hidden");
+      voiceMuteBtn.classList.remove("hidden");
+      voiceHangUpBtn.classList.remove("hidden");
     }
     recordBtn.classList.add("hidden");
 
@@ -517,8 +533,15 @@ function hangUp() {
 }
 
 function handleHangUp(shouldCreateNewConnection = true) {
+  if (!manualStatusOverride) {
+    sendStatusUpdate("Online");
+  }
   stopAudio(dialingSound);
   stopAudio(ringingSound);
+  voiceCallBtn.classList.remove("hidden");
+  videoCallBtn.classList.remove("hidden");
+  voiceMuteBtn.classList.add("hidden");
+  voiceHangUpBtn.classList.add("hidden");
   if (incomingOffer && !localStream) {
     incomingCallModal.classList.add("hidden");
     const discussion = getDiscussion(callInitiatorId);
@@ -570,9 +593,11 @@ function toggleMute() {
   if (!localStream) return;
   localStream.getAudioTracks().forEach((track) => {
     track.enabled = !track.enabled;
-    muteBtn.innerHTML = track.enabled
+    const icon = track.enabled
       ? '<i class="fas fa-microphone"></i>'
       : '<i class="fas fa-microphone-slash"></i>';
+    muteBtn.innerHTML = icon;
+    voiceMuteBtn.innerHTML = icon;
   });
 }
 

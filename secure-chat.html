@@ -117,6 +117,20 @@
           </div>
         </div>
         <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <label for="statusSelector" class="text-sm text-gray-300"
+            >Set Status:</label
+          >
+          <select
+            id="statusSelector"
+            class="w-full bg-gray-800 text-white p-2 rounded mt-1"
+          >
+            <option value="Online">Online</option>
+            <option value="Away">Away</option>
+            <option value="Do Not Disturb">Do Not Disturb</option>
+            <option value="Offline">Offline</option>
+          </select>
+        </div>
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
           <div class="flex items-center justify-between">
             <label for="forceRelayToggle" class="text-sm text-gray-300"
               >Force Relay</label
@@ -199,6 +213,18 @@
                 class="w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full"
               >
                 <i class="fas fa-video"></i>
+              </button>
+              <button
+                id="voiceMuteBtn"
+                class="hidden w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full"
+              >
+                <i class="fas fa-microphone"></i>
+              </button>
+              <button
+                id="voiceHangUpBtn"
+                class="hidden w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded-full"
+              >
+                <i class="fas fa-phone-slash"></i>
               </button>
             </div>
           </div>

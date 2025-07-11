@@ -41,7 +41,7 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocket.Server({ server });
-const peers = new Map(); // clientId -> { ws, name }
+const peers = new Map(); // clientId -> { ws, name, status }
 
 // Enhanced logging
 const PORT = process.env.PORT || 3000;
@@ -54,7 +54,7 @@ server.listen(PORT, () => {
 wss.on("connection", (ws, req) => {
   const clientId = crypto.randomUUID();
   const clientIp = req.socket.remoteAddress;
-  peers.set(clientId, { ws, name: null });
+  peers.set(clientId, { ws, name: null, status: "Online" });
 
   console.log(`New peer connected: ${clientId} from ${clientIp}`);
 
@@ -81,9 +81,21 @@ wss.on("connection", (ws, req) => {
 
       if (data.type === "register") {
         // Register new client
-        peers.get(clientId).name = data.name;
-        console.log(`Client registered: ${data.name} (${clientId})`);
-        broadcastPeerList();
+        const peer = peers.get(clientId);
+        if (peer) {
+          peer.name = data.name;
+          console.log(`Client registered: ${data.name} (${clientId})`);
+          broadcastPeerList();
+        }
+      } else if (data.type === "status-update") {
+        const peer = peers.get(clientId);
+        if (peer) {
+          peer.status = data.status;
+          console.log(
+            `Status update for ${peer.name || clientId}: ${data.status}`
+          );
+          broadcastPeerList();
+        }
       } else if (
         data.type === "relay" &&
         data.target &&
@@ -174,7 +186,11 @@ wss.on("connection", (ws, req) => {
 });
 
 function broadcastPeerList() {
-  const list = [...peers.entries()].map(([id, { name }]) => ({ id, name }));
+  const list = [...peers.entries()].map(([id, { name, status }]) => ({
+    id,
+    name,
+    status,
+  }));
   const message = JSON.stringify({
     type: "peer-list",
     peers: list,
