@@ -17,8 +17,8 @@ export class App {
         this.ui = new UIController(this.emitter);
         this.signaling = new SignalingClient(this.state, this.emitter);
         this.webrtc = new WebRTCConnection(this.state, this.signaling, this.ui, this); // WebRTC depends on state, signaling, UI, and App for orchestrating
-        this.dataManager = new DataManager(this.state, this.webrtc, this.signaling, { encryptMessage, decryptMessage }, { arrayBufferToBase64, base64ToUint8Array }, this.ui); // Data depends on state, WebRTC, Signaling, E2EE, Utils, and UI
-        this.mediaManager = new MediaManager(this.state, this.ui, this.signaling, this.webrtc); // Media depends on state, UI, Signaling, and WebRTC
+        this.dataManager = new DataManager(this.state, this.webrtc, this.signaling, { encryptMessage, decryptMessage }, { arrayBufferToBase64, base64ToUint8Array }, this.emitter); // Data depends on state, WebRTC, Signaling, E2EE, Utils, and Emitter
+        this.mediaManager = new MediaManager(this.state, this.ui, this.signaling, this.webrtc, this.emitter); // Media depends on state, UI, Signaling, WebRTC, and Emitter
     }
 
     async start() {
@@ -27,8 +27,21 @@ export class App {
 
         // Attach UI event listeners, passing App methods as handlers
         this.ui.attachEventListeners({ // UIController will now emit events instead of calling handlers directly
-             // The App will subscribe to these events below
-        }); 
+            onSendMessage: () => this.emitter.emit('ui:sendMessage'),
+            onToggleRecording: () => this.emitter.emit('ui:toggleRecording'),
+            onFileSelect: (event) => this.emitter.emit('ui:fileSelect', { event }),
+            onInitiateVoiceCall: () => this.emitter.emit('ui:initiateVoiceCall'),
+            onInitiateVideoCall: () => this.emitter.emit('ui:initiateVideoCall'),
+            onHangUp: () => this.emitter.emit('ui:hangUp'),
+            onToggleMute: () => this.emitter.emit('ui:toggleMute'),
+            onAnswerCall: () => this.emitter.emit('ui:answerCall'),
+            onDeclineCall: () => this.emitter.emit('ui:declineCall'),
+            onStatusChange: (status) => this.emitter.emit('ui:statusChange', { status }),
+            onEnterChat: () => this.emitter.emit('ui:enterChat'),
+            onForceRelayToggle: (isChecked) => this.emitter.emit('ui:forceRelayToggle', { isChecked }),
+            onContactSearch: (event) => this.emitter.emit('ui:contactSearch', { event }),
+            onTyping: () => this.emitter.emit('ui:typing'),
+        });
 
         // Attach other global event listeners
         document.addEventListener("visibilitychange", this.handleVisibilityChange.bind(this));
@@ -38,13 +51,13 @@ export class App {
         this.emitter.on("signaling:peer-list", this.handlePeerList.bind(this));
         this.emitter.on("signaling:offer", ({ offer, fromId }) => this.webrtc.handleOffer(offer, fromId));
         this.emitter.on("signaling:answer", ({ answer, fromId }) => this.webrtc.handleAnswer(answer, fromId));
-        this.emitter.on("signaling:relay-key-exchange", ({ key, fromId }) => this.webrtc.handleRelayKeyExchange(key, fromId));
-        this.emitter.on("signaling:relay-key-exchange-ack", ({ fromId }) => this.webrtc.handleRelayKeyExchangeAck(fromId));
+        this.emitter.on("signaling:relay-key-exchange", ({ key, fromId }) => this.dataManager.handleRelayKeyExchange(key, fromId)); // DataManager handles key exchange
+        this.emitter.on("signaling:relay-key-exchange-ack", ({ fromId }) => this.dataManager.handleRelayKeyExchangeAck(fromId)); // DataManager handles key exchange ack
         this.emitter.on("signaling:ice-candidate", ({ candidate, fromId }) => this.webrtc.handleIceCandidate(candidate, fromId));
-        this.emitter.on("signaling:relay-message", ({ message, fromId }) => this.dataManager.handleIncomingRelayedMessage(message, fromId));
-        this.emitter.on("signaling:call-offer", ({ offer, fromId, isVideo }) => this.mediaManager.handleCallOffer(offer, fromId, isVideo));
-        this.emitter.on("signaling:call-answer", ({ answer, fromId }) => this.mediaManager.handleCallAnswer(answer, fromId));
-        this.emitter.on("signaling:hang-up", ({ fromId }) => this.mediaManager.handleHangUp(fromId, false)); // 'false' because signaling hang-up isn't initiator
+        this.emitter.on("signaling:relay-message", ({ message, fromId }) => this.dataManager.handleIncomingRelayedMessage(message, fromId)); // DataManager handles relay messages
+        this.emitter.on("signaling:call-offer", ({ offer, fromId, isVideo }) => this.mediaManager.handleCallOffer(offer, fromId, isVideo)); // MediaManager handles call offer
+        this.emitter.on("signaling:call-answer", ({ answer, fromId }) => this.mediaManager.handleCallAnswer(answer, fromId)); // MediaManager handles call answer
+        this.emitter.on("signaling:hang-up", ({ fromId }) => this.mediaManager.handleHangUp(fromId, false)); // MediaManager handles hang up
         this.emitter.on("signaling:decline-call", ({ fromId }) => this.mediaManager.handleDeclineCall(fromId));
         this.emitter.on("signaling:message-status", ({ messageId, status, fromId }) => this.dataManager.handleIncomingMessageStatus(messageId, status, fromId));
         this.emitter.on("signaling:typing", ({ fromId, isTyping }) => this.dataManager.handleTypingIndicator(fromId, isTyping));
@@ -79,7 +92,7 @@ export class App {
                  this.ui.updateConnectionStatus(isTyping ? `Typing...` : (this.state.isRelayActive() ? `Connected (Relay) with ${this.state.getCurrentTargetName()}` : `Connected (WebRTC) with ${this.state.getCurrentTargetName()}`));
             }
         });
-        this.emitter.on("data:show-notification", ({ message, type }) => this.ui.showNotification(message, type));
+        this.emitter.on("data:show-notification", ({ message, type }) => this.ui.showNotification(message, type)); // UI handles showing notifications
 
 
         this.emitter.on("media:local-stream-ready", ({ stream }) => this.ui.setLocalVideo(stream));
@@ -88,7 +101,7 @@ export class App {
                  this.ui.showVideoCallDialog();
              } else {
                   this.ui.showVoiceCallControls(); // Need a UI method for this
-             }
+            }
              this.ui.setMuteButtonState(false); // Start unmuted
              this.ui.updateConnectionStatus("In call");
          });
@@ -98,7 +111,7 @@ export class App {
         this.emitter.on("media:call-answered", () => {
                 this.ui.hideIncomingCallModal();
                  this.ui.showNotification("Call connected!", "info");
-           });
+          });
         this.emitter.on("media:call-ended", ({ peerId, callLog }) => {
                  this.state.addCallToDiscussion(peerId, callLog);
                  this.ui.renderMessages(this.state.getDiscussion(this.state.getCurrentTargetId()).messages, this.state.getClientId());
@@ -112,7 +125,7 @@ export class App {
                  if (this.webrtc.getConnectionState() !== 'disconnected') {
                      this.webrtc.closeConnection(); // Close the WebRTC connection
                  }
-                 this.ui.showNotification("Call ended.", "info");
+                this.ui.showNotification("Call ended.", "info");
                  this.ui.updateConnectionStatus(this.state.isRelayActive() ? "Connected (Relay)" : "Connected (WebRTC)");
             });
         this.emitter.on("media:show-notification", ({ message, type }) => this.ui.showNotification(message, type));
@@ -226,7 +239,7 @@ export class App {
          if (this.state.isRelayActive() || this.state.isForceRelay()) return; // Don't fallback if already relay or forced
          this.state.setIsRelayActive(true);
          this.ui.updateConnectionStatus("Connected (Relay)");
-         this.ui.showNotification("WebRTC connection failed. Using relay server.", "warning");
+        this.ui.showNotification("WebRTC connection failed. Using relay server.", "warning");
          this.webrtc.initiateRelayKeyExchange(this.state.getCurrentTargetId(), this.state.getMyPublicKey()); // WebRTC initiates relay key exchange
      }
 

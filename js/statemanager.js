@@ -245,7 +245,7 @@ export class StateManager {
     addCallToDiscussion(peerId, callDetails) {
         const discussion = this.getDiscussion(peerId);
         discussion.calls.push(callDetails);
-        this.saveDiscussion(peerId, discussion);
+        this._saveDiscussion(peerId, discussion); // Use internal save method
     }
 
     findMessageInDiscussion(peerId, messageId) {

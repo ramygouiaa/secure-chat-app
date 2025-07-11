@@ -1,14 +1,16 @@
 // js/datamanager.js
 
-import { encryptMessage, decryptMessage } from './e2ee.js'; // Assuming e2ee functions are exported
-import { arrayBufferToBase64, base64ToUint8Array } from './utils.js';
+import { encryptMessage, decryptMessage } from '/js/e2ee.js'; // Assuming e2ee functions are exported
+import { arrayBufferToBase64, base64ToUint8Array } from '/js/utils.js';
+import { EventEmitter } from '/js/events.js';
 
 export class DataManager {
-    constructor(stateManager, webrtcConnection, signalingClient, uiController, eventEmitter) {
+    constructor(stateManager, webrtcConnection, signalingClient, uiController, eventEmitter) { // Accept eventEmitter
         this.state = stateManager;
         this.webrtc = webrtcConnection;
         this.signaling = signalingClient;
         this.ui = uiController;
+        this.emitter = eventEmitter; // Store eventEmitter
 
         this.fileChunks = new Map(); // To manage incoming file chunks
         this.mediaRecorder = null;
@@ -17,11 +19,11 @@ export class DataManager {
     }
 
     init() {
-        // Listen for messages from WebRTC and Signaling
-        this.eventEmitter.on('webrtc:dataMessage', ({ data, senderId }) => {
+        // Listen for data messages from WebRTC and relay messages from Signaling
+        this.emitter.on('webrtc:dataMessage', ({ data, senderId }) => {
             this.handleIncomingMessage(data, senderId);
         });
-        this.eventEmitter.on('signaling:relayMessage', ({ payload, fromId }) => {
+        this.emitter.on('signaling:relayMessage', ({ payload, fromId }) => {
             this.handleIncomingRelayMessage(payload, fromId);
         });
     }
@@ -196,7 +198,7 @@ export class DataManager {
     // Toggles voice recording
     async toggleRecording() {
         const recordBtn = this.ui.elements.recordBtn; // Access UI element via uiController
-
+    
         if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
             this.mediaRecorder.stop();
             recordBtn.innerHTML = '<i class="fas fa-microphone"></i>';
@@ -204,7 +206,7 @@ export class DataManager {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 this.state.setLocalStream(stream); // Store local stream
-                this.mediaRecorder = new MediaRecorder(stream);
+                this.mediaRecorder = new MediaRecorder(stream); // Create MediaRecorder
                 this.mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
                         this.recordedChunks.push(event.data);
@@ -384,12 +386,12 @@ export class DataManager {
                  }
             } else if (message.type === "message-status" && !decrypted) { // Assuming status messages are not encrypted over signaling
                  // Handle message status updates (delivered, read)
-                const discussion = this.state.getDiscussion(message.from); // Status is for messages from this user
+                const discussion = this.state.getDiscussion(message.from); // Status is for messages from this user, check message structure
                 if (discussion) {
                      message.messageIds.forEach((messageId) => {
                         const msg = discussion.messages.find((m) => m.id === messageId);
                         if (msg) {
-                             // Ensure status update is higher priority (e.g., read > delivered > sent)
+                             // Ensure status update is higher priority (e.g., read > delivered > sent). Assuming 'message.status' is the new status
                              if (msg.status !== 'read' || message.status === 'read') {
                                 msg.status = message.status;
                              }
