@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "main": "signaling-server.js",
   "scripts": {
-    "start": "node signaling-server.js"
+    "start": "node signaling-server.js",
+    "test": "jest"
   },
   "author": "Ramy Gouiaa",
   "license": "ISC",
   "description": "A secure, real-time chat application with end-to-end encrypted video and voice calls.",
   "dependencies": {
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "jest": "^30.0.4"
   }
 }
