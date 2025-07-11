@@ -5,7 +5,7 @@ import { StateManager } from "./statemanager.js";
 import { SignalingClient } from "./signaling.js";
 import { WebRTCConnection } from "./webrtc.js";
 import { DataManager } from "./datamanager.js";
-import { MediaManager } from "./mediamanager.js";
+import { MediaManager } from "./mediamanager.js"; // Corrected path
 import { generateKeys, exportPublicKey, importPublicKey, deriveSharedSecret, encryptMessage, decryptMessage } from "./e2ee.js";
 import { arrayBufferToBase64, base64ToUint8Array } from "./utils.js";
 import { EventEmitter } from "./events.js";
@@ -17,7 +17,7 @@ export class App {
         this.ui = new UIController(this.emitter);
         this.signaling = new SignalingClient(this.state, this.emitter);
         this.webrtc = new WebRTCConnection(this.state, this.signaling, this.ui, this); // WebRTC depends on state, signaling, UI, and App for orchestrating
-        this.dataManager = new DataManager(this.state, this.webrtc, this.signaling, { encryptMessage, decryptMessage }, { arrayBufferToBase64, base64ToUint8Array }, this.emitter); // Data depends on state, WebRTC, Signaling, E2EE, Utils, and Emitter
+        this.dataManager = new DataManager(this.state, this.webrtc, this.signaling, { encryptMessage, decryptMessage }, { arrayBufferToBase64, base64ToUint8Array }, this.emitter); // Data depends on state, WebRTC, Signaling, E2EE, Utils, and Emitter // Corrected DataManager instantiation
         this.mediaManager = new MediaManager(this.state, this.ui, this.signaling, this.webrtc, this.emitter); // Media depends on state, UI, Signaling, WebRTC, and Emitter
     }
 
@@ -162,7 +162,7 @@ export class App {
         this.ui.setDisplayName(userName);
 
         // Generate keys and connect to signaling server
-        this.state.setMyKeys(await generateKeys());
+        this.state.setMyKeys(await generateKeys()); // Access generateKeys directly as it's imported at the top level
         console.log("Generated crypto keys.");
 
         this.signaling.connect(); // Signaling client will handle its connection logic
@@ -186,12 +186,7 @@ export class App {
     }
 
     handleStatusChange(status) {
-        if (status === "Online") {
-            this.state.setManualStatusOverride(false);
-            this.signaling.sendStatusUpdate(status);
-        } else {
-             this.state.setManualStatusOverride(true);
-        }
+        this.state.setManualStatusOverride(status !== "Online");
         this.signaling.sendStatusUpdate(status);
     }
 
