@@ -203,7 +203,7 @@ function broadcastPeerList() {
 
   let sentCount = 0;
   peers.forEach(({ ws }, clientId) => {
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === 1) { // WebSocket.OPEN
       ws.send(message);
       sentCount++;
     }
