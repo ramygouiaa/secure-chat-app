@@ -73,7 +73,7 @@ wss.on("connection", (ws, req) => {
 
   // Heartbeat to keep connection alive
   const heartbeatInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === 1) { // WebSocket.OPEN
       ws.ping();
     }
   }, 30000);
