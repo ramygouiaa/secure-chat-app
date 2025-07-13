@@ -152,7 +152,7 @@ wss.on("connection", (ws, req) => {
       } else if (data.target && peers.has(data.target)) {
         // Relay message to target peer with additional metadata
         const targetPeer = peers.get(data.target);
-        if (targetPeer.ws.readyState === WebSocket.OPEN) {
+        if (targetPeer.ws.readyState === 1) { // WebSocket.OPEN
           const relayMessage = JSON.stringify({
             ...data,
             from: clientId,
