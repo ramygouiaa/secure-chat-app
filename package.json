@@ -1,14 +1,39 @@
 {
   "name": "securechat",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "A secure, real-time chat application with end-to-end encrypted video and voice calls - Refactored with SOLID principles",
   "main": "signaling-server.js",
+  "type": "module",
   "scripts": {
-    "start": "node signaling-server.js"
+    "start": "node signaling-server.js",
+    "dev": "node signaling-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "secure",
+    "chat",
+    "webrtc",
+    "e2e",
+    "encryption",
+    "video",
+    "voice",
+    "calls"
+  ],
   "author": "Ramy Gouiaa",
   "license": "ISC",
-  "description": "A secure, real-time chat application with end-to-end encrypted video and voice calls.",
   "dependencies": {
     "ws": "^8.18.3"
-  }
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ramygouiaa/secure-chat-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ramygouiaa/secure-chat-app/issues"
+  },
+  "homepage": "https://github.com/ramygouiaa/secure-chat-app#readme"
 }

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureChat - Real Users</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .toggle-checkbox:checked {
+        right: 0;
+        border-color: #48bb78;
+      }
+      .toggle-checkbox:checked + .toggle-label {
+        background-color: #48bb78;
+      }
+      #videoCallDialog {
+        resize: both;
+        overflow: auto;
+      }
+      
+      /* Loading animations */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .animate-spin {
+        animation: spin 1s linear infinite;
+      }
+      
+      /* Fade in animation */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .fade-in {
+        animation: fadeIn 0.3s ease-out;
+      }
+      
+      /* Message animations */
+      .message-enter {
+        animation: fadeIn 0.2s ease-out;
+      }
+      
+      /* Typing indicator */
+      .typing-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #9ca3af;
+        animation: typing 1.4s infinite ease-in-out;
+      }
+      
+      .typing-indicator:nth-child(1) { animation-delay: -0.32s; }
+      .typing-indicator:nth-child(2) { animation-delay: -0.16s; }
+      
+      @keyframes typing {
+        0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+        40% { transform: scale(1); opacity: 1; }
+      }
+      
+      /* Call controls */
+      .call-controls {
+        backdrop-filter: blur(10px);
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      
+      /* Notification styles */
+      .notification-enter {
+        animation: slideDown 0.3s ease-out;
+      }
+      
+      @keyframes slideDown {
+        from { transform: translateY(-100%); }
+        to { transform: translateY(0); }
+      }
+      
+      /* Contact list animations */
+      .contact-item {
+        transition: all 0.2s ease;
+      }
+      
+      .contact-item:hover {
+        transform: translateX(4px);
+      }
+      
+      /* Video call dialog */
+      #videoCallDialog {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid #374151;
+      }
+      
+      /* Status indicators */
+      .status-indicator {
+        position: relative;
+      }
+      
+      .status-indicator::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 2px solid #1f2937;
+      }
+      
+      .status-online::after { background-color: #10b981; }
+      .status-away::after { background-color: #f59e0b; }
+      .status-busy::after { background-color: #ef4444; }
+      .status-offline::after { background-color: #6b7280; }
+      
+      /* Scrollbar styles */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #374151;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #6b7280;
+        border-radius: 3px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+      
+      /* Message status indicators */
+      .message-status {
+        transition: color 0.2s ease;
+      }
+      
+      .status-sent { color: #9ca3af; }
+      .status-delivered { color: #9ca3af; }
+      .status-read { color: #3b82f6; }
+    </style>
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/images/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/images/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/images/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/images/site.webmanifest" />
+  </head>
+  <body class="bg-gray-900 text-white">
+    <!-- Welcome Modal -->
+    <div
+      id="welcomeModal"
+      class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-md mx-4 fade-in"
+      >
+        <h2 class="text-3xl font-bold text-green-400 mb-4">
+          Welcome to SecureChat!
+        </h2>
+        <p class="text-lg text-gray-300 mb-6">
+          Experience truly private and secure communication. All your messages,
+          calls, and file transfers are protected with end-to-end encryption,
+          ensuring only you and your intended recipient can access them.
+        </p>
+        <div class="mb-6">
+          <div class="flex justify-center space-x-4 text-sm text-gray-400">
+            <div class="flex items-center">
+              <i class="fas fa-shield-alt text-green-400 mr-2"></i>
+              <span>E2E Encrypted</span>
+            </div>
+            <div class="flex items-center">
+              <i class="fas fa-video text-green-400 mr-2"></i>
+              <span>Voice & Video</span>
+            </div>
+            <div class="flex items-center">
+              <i class="fas fa-file text-green-400 mr-2"></i>
+              <span>File Sharing</span>
+            </div>
+          </div>
+        </div>
+        <button
+          id="enterChatBtn"
+          class="px-8 py-4 bg-green-600 hover:bg-green-700 rounded-lg text-xl font-semibold transition-colors"
+        >
+          Enter Chat
+        </button>
+      </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div
+      id="notification"
+      class="hidden fixed top-0 left-0 right-0 p-4 text-white text-center z-50 notification-enter"
+    ></div>
+
+    <div class="flex h-screen">
+      <!-- Sidebar -->
+      <div
+        id="sidebar"
+        class="w-full md:w-80 bg-gray-800 border-r border-gray-700 flex-col md:flex absolute md:relative h-full z-20 hidden"
+      >
+        <div
+          class="p-4 border-b border-gray-700 flex justify-between items-center"
+        >
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold text-green-400">SecureChat</h1>
+            <div
+              class="ml-2 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+              title="E2E Encryption Active"
+            ></div>
+          </div>
+          <button
+            id="closeSidebarBtn"
+            class="md:hidden text-gray-400 hover:text-white transition-colors"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- User Info -->
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <div class="text-sm">
+            Your name:
+            <span id="displayName" class="font-bold text-green-400"></span>
+          </div>
+          <div class="text-xs text-gray-400">
+            Your ID: <span id="clientIdDisplay" class="font-mono"></span>
+          </div>
+        </div>
+        
+        <!-- Status Selector -->
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <label for="statusSelector" class="text-sm text-gray-300"
+            >Set Status:</label
+          >
+          <select
+            id="statusSelector"
+            class="w-full bg-gray-800 text-white p-2 rounded mt-1 border border-gray-600 focus:border-green-500 focus:outline-none"
+          >
+            <option value="Online">Online</option>
+            <option value="Away">Away</option>
+            <option value="Do Not Disturb">Do Not Disturb</option>
+            <option value="Offline">Offline</option>
+          </select>
+        </div>
+        
+        <!-- Force Relay Toggle -->
+        <div class="p-3 bg-gray-700 border-b border-gray-600">
+          <div class="flex items-center justify-between">
+            <label for="forceRelayToggle" class="text-sm text-gray-300"
+              >Force Relay</label
+            >
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="forceRelayToggle"
+                id="forceRelayToggle"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-200"
+              />
+              <label
+                for="forceRelayToggle"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer transition-all duration-200"
+              ></label>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">
+            Force use of relay server instead of direct P2P connection
+          </p>
+        </div>
+        
+        <!-- Search -->
+        <div class="p-3 bg-gray-700 border-b border-gray-600 relative">
+          <input
+            type="text"
+            id="contactSearchInput"
+            placeholder="Search contacts..."
+            class="w-full bg-gray-800 text-white pl-10 pr-4 py-2 rounded-full border border-gray-600 focus:border-green-500 focus:outline-none transition-colors"
+          />
+          <div
+            class="absolute inset-y-0 left-0 pl-7 flex items-center pointer-events-none"
+          >
+            <i class="fas fa-search text-gray-400"></i>
+          </div>
+        </div>
+        
+        <!-- Contacts List -->
+        <div class="flex-1 overflow-y-auto">
+          <div class="p-2">
+            <div class="text-sm text-gray-400 mb-2 flex items-center">
+              <i class="fas fa-users mr-2"></i>
+              <span>Contacts</span>
+            </div>
+            <div id="contactsList" class="space-y-1"></div>
+          </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div class="p-3 bg-gray-700 border-t border-gray-600">
+          <div class="text-xs text-gray-400">
+            Connection: <span id="connectionStatus" class="font-medium">Disconnected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Chat Area -->
+      <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <div class="p-4 bg-gray-800 border-b border-gray-700">
+          <div class="flex items-center justify-between">
+            <button
+              id="openSidebarBtn"
+              class="md:hidden text-gray-400 hover:text-white mr-4 transition-colors"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h16m-7 6h7"
+                ></path>
+              </svg>
+            </button>
+            <div class="flex-1">
+              <div class="font-medium" id="chatWith">Not connected</div>
+              <div class="text-sm text-gray-400" id="chatStatus">
+                Select a contact to start chatting
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                id="voiceCallBtn"
+                class="w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                title="Voice Call"
+              >
+                <i class="fas fa-phone"></i>
+              </button>
+              <button
+                id="videoCallBtn"
+                class="w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                title="Video Call"
+              >
+                <i class="fas fa-video"></i>
+              </button>
+              <button
+                id="voiceMuteBtn"
+                class="hidden w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                title="Mute/Unmute"
+              >
+                <i class="fas fa-microphone"></i>
+              </button>
+              <button
+                id="voiceHangUpBtn"
+                class="hidden w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded-full transition-colors"
+                title="Hang Up"
+              >
+                <i class="fas fa-phone-slash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Call Dialog -->
+        <div
+          id="videoCallDialog"
+          style="display: none"
+          class="absolute inset-0 md:inset-auto md:top-1/4 md:left-1/4 md:w-1/2 md:h-1/2 bg-gray-800 border-gray-700 md:border md:rounded-lg shadow-lg z-30"
+        >
+          <div
+            id="videoCallHeader"
+            class="p-2 bg-gray-700 cursor-move rounded-t-lg flex items-center justify-between"
+          >
+            <h3 class="text-sm font-bold flex items-center">
+              <i class="fas fa-video mr-2"></i>
+              <span>Video Call</span>
+            </h3>
+            <div class="flex items-center space-x-2">
+              <div class="text-xs text-gray-400" id="callDuration">00:00</div>
+            </div>
+          </div>
+          <div
+            class="relative w-full bg-black"
+            style="height: calc(100% - 2.5rem)"
+          >
+            <video
+              id="remoteVideo"
+              autoplay
+              class="w-full h-full object-contain"
+            ></video>
+            <video
+              id="localVideo"
+              autoplay
+              muted
+              class="absolute bottom-4 right-4 w-1/3 h-1/3 md:w-1/4 md:h-1/4 border-2 border-white rounded-lg object-contain"
+            ></video>
+            <!-- Call Controls -->
+            <div
+              class="absolute bottom-0 left-0 right-0 flex justify-center items-center p-4 call-controls"
+            >
+              <button
+                id="muteBtn"
+                class="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full mx-2 transition-colors"
+                title="Mute/Unmute"
+              >
+                <i class="fas fa-microphone"></i>
+              </button>
+              <button
+                id="hangUpBtn"
+                class="w-16 h-16 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded-full mx-2 transition-colors"
+                title="Hang Up"
+              >
+                <i class="fas fa-phone-slash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages Container -->
+        <div
+          id="messagesContainer"
+          class="flex-1 overflow-y-auto p-4 space-y-4"
+        ></div>
+
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" class="hidden px-4 py-2 text-gray-400 text-sm">
+          <div class="flex items-center space-x-2">
+            <div class="flex space-x-1">
+              <div class="typing-indicator"></div>
+              <div class="typing-indicator"></div>
+              <div class="typing-indicator"></div>
+            </div>
+            <span>Typing...</span>
+          </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="p-4 bg-gray-800 border-t border-gray-700">
+          <div class="flex items-center gap-2">
+            <button
+              id="fileBtn"
+              class="w-10 h-10 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+              title="Send File"
+            >
+              <i class="fas fa-plus"></i>
+            </button>
+            <input type="file" id="fileInput" class="hidden" />
+            <input
+              type="text"
+              id="messageInput"
+              placeholder="Type a message..."
+              class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-full border border-gray-600 focus:border-green-500 focus:outline-none transition-colors"
+            />
+            <button
+              id="recordBtn"
+              class="w-10 h-10 flex items-center justify-center bg-green-600 hover:bg-green-700 rounded-full transition-colors"
+              title="Record Voice Message"
+            >
+              <i class="fas fa-microphone"></i>
+            </button>
+            <button
+              id="sendBtn"
+              class="hidden w-10 h-10 flex items-center justify-center bg-green-600 hover:bg-green-700 rounded-full transition-colors"
+              title="Send Message"
+            >
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div
+      id="incomingCallModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-sm mx-4 fade-in">
+        <div class="mb-4">
+          <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-phone text-2xl text-white"></i>
+          </div>
+          <h2 class="text-2xl font-bold mb-2">Incoming Call</h2>
+          <p class="text-gray-300">
+            <span id="callerName" class="font-bold"></span> is calling...
+          </p>
+        </div>
+        <div class="flex justify-center gap-4">
+          <button
+            id="answerCallBtn"
+            class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <i class="fas fa-phone"></i>
+            <span>Answer</span>
+          </button>
+          <button
+            id="declineCallBtn"
+            class="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <i class="fas fa-phone-slash"></i>
+            <span>Decline</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="remoteAudio" autoplay></audio>
+    <audio id="dialingSound" src="sounds/phone-calling.mp3"></audio>
+    <audio id="ringingSound" src="sounds/discord-sfx-calling.mp3"></audio>
+
+    <!-- Load Application -->
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
