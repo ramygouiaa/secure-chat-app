@@ -1,10 +1,12 @@
 // js/e2ee.js
 
-// Note: sharedSecrets is a global variable for now,
-// but will be managed by a StateManager or DataManager module later.
-// It's accessed here directly for the initial refactor step.
+// js/e2ee.js
+
+// These functions will now receive the StateManager instance to access sharedSecrets and myKeys.
 
 export async function generateKeys() {
+  // This function doesn't directly need state, but it's good practice to have it available if needed.
+  // For now, it's called by app.js which will manage the state.
   return await window.crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
     true,
@@ -37,11 +39,16 @@ export async function deriveSharedSecret(privateKey, publicKey) {
   );
 }
 
-export async function encryptMessage(data, targetId) {
-  const secret = sharedSecrets[targetId];
+// These functions now accept the StateManager instance to access secrets.
+export async function encryptMessage(data, targetId, stateManager) {
+  const secret = stateManager.getSharedSecret(targetId);
+  if (!secret) {
+    throw new Error(`Shared secret not found for targetId: ${targetId}`);
+  }
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-  let dataToEncrypt = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  let dataToEncrypt =
+    typeof data === "string" ? new TextEncoder().encode(data) : data;
 
   const ciphertext = await window.crypto.subtle.encrypt(
     { name: "AES-GCM", iv: iv },
@@ -55,10 +62,17 @@ export async function encryptMessage(data, targetId) {
   return buffer;
 }
 
-export async function decryptMessage(data, senderId) {
-  const secret = sharedSecrets[senderId];
+export async function decryptMessage(data, senderId, stateManager) {
+  const secret = stateManager.getSharedSecret(senderId);
+  if (!secret) {
+    throw new Error(`Shared secret not found for senderId: ${senderId}`);
+  }
   const buffer = new Uint8Array(data);
   const iv = buffer.slice(0, 12);
   const ciphertext = buffer.slice(12);
-  return await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, secret, ciphertext);
+  return await window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv },
+    secret,
+    ciphertext
+  );
 }
