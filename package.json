@@ -2,11 +2,11 @@
   "name": "securechat",
   "version": "2.0.0",
   "description": "A secure, real-time chat application with end-to-end encrypted video and voice calls - Refactored with SOLID principles",
-  "main": "signaling-server.js",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node signaling-server.js",
-    "dev": "node signaling-server.js",
+    "start": "node server.js",
+    "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
