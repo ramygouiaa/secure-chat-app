@@ -1,79 +1,32 @@
-/**
- * Event Bus implementation for decoupled communication
- * Implements Observer pattern for loose coupling
- */
+import { IEventBus } from "../interfaces.js";
 
-import { IEventBus } from '../interfaces.js';
-
-export class EventBus extends IEventBus {
+class EventBus extends IEventBus {
   constructor() {
     super();
-    this.events = new Map();
+    this.events = {};
   }
-  
-  emit(event, data = null) {
-    const handlers = this.events.get(event);
-    if (!handlers) return false;
-    
-    handlers.forEach(handler => {
-      try {
-        handler(data);
-      } catch (error) {
-        console.error(`Error in event handler for ${event}:`, error);
-      }
-    });
-    
-    return true;
-  }
-  
-  on(event, handler) {
-    if (!this.events.has(event)) {
-      this.events.set(event, new Set());
+
+  on(event, listener) {
+    if (!this.events[event]) {
+      this.events[event] = [];
     }
-    this.events.get(event).add(handler);
-    
-    // Return unsubscribe function
-    return () => this.off(event, handler);
+    this.events[event].push(listener);
+    return () => this.off(event, listener);
   }
-  
-  off(event, handler) {
-    const handlers = this.events.get(event);
-    if (!handlers) return false;
-    
-    const removed = handlers.delete(handler);
-    if (handlers.size === 0) {
-      this.events.delete(event);
+
+  off(event, listener) {
+    if (!this.events[event]) {
+      return;
     }
-    
-    return removed;
+    this.events[event] = this.events[event].filter((l) => l !== listener);
   }
-  
-  once(event, handler) {
-    const onceHandler = (data) => {
-      handler(data);
-      this.off(event, onceHandler);
-    };
-    
-    return this.on(event, onceHandler);
-  }
-  
-  removeAllListeners(event) {
-    if (event) {
-      this.events.delete(event);
-    } else {
-      this.events.clear();
+
+  emit(event, data) {
+    if (!this.events[event]) {
+      return;
     }
-  }
-  
-  getEventNames() {
-    return Array.from(this.events.keys());
-  }
-  
-  getListenerCount(event) {
-    const handlers = this.events.get(event);
-    return handlers ? handlers.size : 0;
+    this.events[event].forEach((listener) => listener(data));
   }
 }
 
-// Singleton instance
 export const eventBus = new EventBus();
