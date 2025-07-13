@@ -126,7 +126,7 @@ wss.on("connection", (ws, req) => {
         peers.has(data.target)
       ) {
         const targetPeer = peers.get(data.target);
-        if (targetPeer.ws.readyState === WebSocket.OPEN) {
+        if (targetPeer.ws.readyState === 1) { // WebSocket.OPEN
           const relayMessage = JSON.stringify({
             ...data,
             from: clientId,
