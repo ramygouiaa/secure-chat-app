@@ -44,7 +44,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
 const peers = new Map(); // clientId -> { ws, name, status }
 
 // Enhanced logging
