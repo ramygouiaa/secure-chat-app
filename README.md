@@ -8,7 +8,6 @@ This is a secure, real-time chat application that supports text messaging, file 
 - **Real-Time Communication:** Uses WebSockets for signaling and WebRTC for peer-to-peer communication.
 - **Video and Voice Calls:** High-quality video and voice calls with a simple and intuitive interface.
 - **File Sharing:** Securely share files with other users.
-- **Refactored Codebase:** The front-end JavaScript has been refactored into modules for better readability and maintenance.
 
 ## How to Use
 
