@@ -1,3 +1,7 @@
+<img width="797" height="544" alt="Screenshot 2026-05-18 at 18 39 27" src="https://github.com/user-attachments/assets/e279f632-048f-4ec1-9219-78ec7fc0c343" />
+<img width="786" height="695" alt="Screenshot 2026-05-18 at 18 41 00" src="https://github.com/user-attachments/assets/8494db33-caca-41ab-a13f-6ad89c22c337" />
+
+
 # Secure Chat App
 
 This is a secure, real-time chat application that supports text messaging, file sharing, and end-to-end encrypted video and voice calls. It uses a Node.js server for signaling and serves the front-end application.
