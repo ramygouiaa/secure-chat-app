@@ -1,112 +1,95 @@
-import { View } from "./View.js";
-import { formatTime, escapeHtml, formatDuration } from "../../utils/helpers.js";
-
-export class ChatView extends View {
+export class ChatView {
   constructor() {
-    super("#messagesContainer");
-    this.chatWith = document.getElementById("chatWith");
-    this.typingIndicator = document.getElementById("typingIndicator");
+    this.messagesContainer = document.getElementById("messagesContainer");
+    this.messageInput = document.getElementById("messageInput");
+    this.chatHeader = document.getElementById("chatHeader");
   }
 
-  render(discussion) {
-    const allItems = [
-      ...(discussion.messages || []).map((item) => ({
-        ...item,
-        itemType: "message",
-      })),
-      ...(discussion.calls || []).map((item) => ({
-        ...item,
-        itemType: "call",
-      })),
-    ];
+  addMessage(message, senderName, isOwn) {
+    if (!this.messagesContainer) return;
 
-    allItems.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const messageElement = document.createElement("div");
+    messageElement.className = `message ${isOwn ? "own" : "other"} mb-4`;
 
-    const itemsHtml = allItems.map((item) => this.renderItem(item)).join("");
-
-    this.element.innerHTML = itemsHtml;
-    this.element.scrollTop = this.element.scrollHeight;
-  }
-
-  renderItem(item) {
-    if (item.itemType === "message") {
-      return this.renderMessage(item);
-    } else if (item.itemType === "call") {
-      return this.renderCallRecord(item);
-    }
-    return "";
-  }
-
-  renderMessage(message) {
-    const time = formatTime(message.timestamp);
-    const isOwn = message.sender === "You";
-
-    const statusIcon = isOwn ? this.getStatusIcon(message.status) : "";
-
-    let content = "";
-    if (message.text) {
-      content = `<span class="text-sm">${escapeHtml(message.text)}</span>`;
-    } else if (message.audioUrl) {
-      content = `<audio controls src="${message.audioUrl}"></audio>`;
-    } else if (message.file) {
-      content = `<a href="${message.file.url}" download="${
-        message.file.name
-      }" class="text-blue-300 hover:underline">${escapeHtml(
-        message.file.name
-      )}</a>`;
+    // Handle different message formats
+    let content;
+    if (typeof message === "string") {
+      content = message;
+    } else if (message && typeof message === "object") {
+      content =
+        message.content || message.text || message.message || "No content";
+    } else {
+      content = "Invalid message";
     }
 
-    return `
+    const timestamp = (message && message.timestamp) || Date.now();
+
+    messageElement.innerHTML = `
       <div class="flex ${isOwn ? "justify-end" : "justify-start"}">
-        <div class="bg-${
-          isOwn ? "green" : "gray"
-        }-700 px-4 py-2 rounded-lg max-w-xs">
-          ${content}
-          <div class="text-xs text-gray-400 text-right mt-1">
-            ${time}
-            ${statusIcon}
+        <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+          isOwn ? "bg-blue-600 text-white" : "bg-gray-700 text-white"
+        }">
+          <div class="text-sm font-medium mb-1">${senderName}</div>
+          <div>${content}</div>
+          <div class="text-xs opacity-75 mt-1">
+            ${new Date(timestamp).toLocaleTimeString()}
           </div>
         </div>
       </div>
     `;
+
+    this.messagesContainer.appendChild(messageElement);
+    this.scrollToBottom();
   }
 
-  renderCallRecord(call) {
-    const time = formatTime(call.timestamp);
-    const duration =
-      call.status === "ended" ? `(${formatDuration(call.duration)})` : "";
+  addSystemMessage(message) {
+    if (!this.messagesContainer) return;
 
-    return `
-      <div class="text-center text-gray-500 text-xs my-2">
-        ${call.type === "video" ? "Video" : "Voice"} Call ${
-      call.status
-    } ${duration} - ${time}
+    const messageElement = document.createElement("div");
+    messageElement.className = "system-message mb-4";
+
+    messageElement.innerHTML = `
+      <div class="flex justify-center">
+        <div class="bg-gray-600 text-gray-300 px-3 py-1 rounded-full text-sm">
+          <i class="fas fa-shield-alt mr-1"></i>
+          ${message}
+        </div>
       </div>
     `;
+
+    this.messagesContainer.appendChild(messageElement);
+    this.scrollToBottom();
   }
 
-  getStatusIcon(status) {
-    switch (status) {
-      case "read":
-        return '<i class="fas fa-check-double text-blue-400"></i>';
-      case "delivered":
-        return '<i class="fas fa-check-double"></i>';
-      case "sent":
-        return '<i class="fas fa-check"></i>';
-      default:
-        return "";
+  clearMessages() {
+    if (this.messagesContainer) {
+      this.messagesContainer.innerHTML = "";
+    }
+  }
+
+  clearMessageInput() {
+    if (this.messageInput) {
+      this.messageInput.value = "";
     }
   }
 
   updateChatHeader(targetName) {
-    this.chatWith.textContent = `Chatting with: ${targetName}`;
+    const chatWith = document.getElementById("chatWith");
+    const chatStatus = document.getElementById("chatStatus");
+
+    if (chatWith) {
+      chatWith.textContent = `Chat with ${targetName}`;
+    }
+
+    if (chatStatus) {
+      chatStatus.textContent = "End-to-end encrypted • Online";
+      chatStatus.className = "text-sm text-green-400";
+    }
   }
 
-  showTypingIndicator() {
-    this.typingIndicator.classList.remove("hidden");
-  }
-
-  hideTypingIndicator() {
-    this.typingIndicator.classList.add("hidden");
+  scrollToBottom() {
+    if (this.messagesContainer) {
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
   }
 }

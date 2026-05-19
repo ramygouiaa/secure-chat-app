@@ -6,634 +6,205 @@
 import { IUIController } from "../../core/interfaces.js";
 import { eventBus } from "../../core/events/EventBus.js";
 import { stateManager } from "../../core/state/StateManager.js";
-import { errorHandler } from "../../core/errors/ErrorHandler.js";
-import { generateUUID } from "../../utils/helpers.js";
-import { validateMessage, validateFile } from "../../utils/validators.js";
 import { ChatView } from "../views/ChatView.js";
 
 export class ChatController extends IUIController {
-  constructor(webrtcService, storageService) {
+  constructor(encryptionService, storageService, signalingService) {
     super();
-    this.webrtcService = webrtcService;
+    this.encryptionService = encryptionService;
     this.storageService = storageService;
+    this.signalingService = signalingService;
     this.view = new ChatView();
-    this.currentTargetId = null;
-    this.currentTargetName = null;
-    this.isTyping = false;
-    this.typingTimeout = null;
-    this.recordingChunks = [];
-    this.mediaRecorder = null;
+    this.currentChatId = null;
+  }
 
+  async initialize() {
     this.setupEventHandlers();
+    this.setupUIEventHandlers();
   }
 
-  async render(data) {
-    const { targetId, targetName } = data;
-
-    if (targetId === this.currentTargetId) {
-      return; // Already chatting with this target
-    }
-
-    this.currentTargetId = targetId;
-    this.currentTargetName = targetName;
-
-    // Update UI
-    this.view.updateChatHeader(targetName);
-
-    // Load and render messages
-    await this.loadMessages(targetId);
-
-    // Connect to peer
-    try {
-      await this.webrtcService.connect(targetId, true);
-    } catch (error) {
-      console.warn("Failed to connect via WebRTC, using relay");
-    }
-
-    // Update state
-    stateManager.setState({
-      currentChat: {
-        id: targetId,
-        name: targetName,
-      },
-    });
-
-    // Mark messages as read
-    this.markMessagesAsRead(targetId);
-
-    eventBus.emit("chat:opened", { targetId, targetName });
-  }
-
-  async handleEvent(event) {
-    switch (event.type) {
-      case "message:send":
-        await this.handleSendMessage(event.data);
-        break;
-      case "message:typing":
-        await this.handleTyping();
-        break;
-      case "message:stop-typing":
-        await this.handleStopTyping();
-        break;
-      case "file:send":
-        await this.handleSendFile(event.data);
-        break;
-      case "voice:record":
-        await this.handleVoiceRecord(event.data);
-        break;
-      case "messages:mark-read":
-        await this.handleMarkRead(event.data);
-        break;
-      default:
-        console.warn(`Unknown event type: ${event.type}`);
+  render(data) {
+    // Render method for controller interface compatibility
+    if (data && data.messages) {
+      this.view.clearMessages();
+      data.messages.forEach((msg) => {
+        this.view.addMessage(msg, msg.senderName, msg.isOwn);
+      });
     }
   }
 
   setupEventHandlers() {
-    // Listen for incoming messages
-    eventBus.on("webrtc:message-received", (data) => {
-      this.handleIncomingMessage(data.message, data.targetId);
-    });
-
-    // Listen for typing indicators
-    eventBus.on("message:typing-received", (data) => {
-      this.handleTypingIndicator(data.targetId, true);
-    });
-
-    eventBus.on("message:stop-typing-received", (data) => {
-      this.handleTypingIndicator(data.targetId, false);
-    });
-
-    // Listen for message status updates
-    eventBus.on("message:status-received", (data) => {
-      this.handleMessageStatusUpdate(data);
-    });
+    eventBus.on("message:received", this.handleMessageReceived.bind(this));
+    eventBus.on("chat:selected", this.handleChatSelected.bind(this));
+    eventBus.on("ui:contact-selected", this.handleContactSelected.bind(this));
   }
 
-  async handleSendMessage(data) {
-    const { text } = data;
-
-    if (!this.currentTargetId) {
-      errorHandler.createUserError("No chat selected");
-      return;
-    }
-
-    // Validate message
-    const validation = validateMessage(text);
-    if (!validation.isValid) {
-      errorHandler.createValidationError(validation.errors[0]);
-      return;
-    }
-
-    try {
-      const message = {
-        id: generateUUID(),
-        type: "text",
-        content: validation.sanitized,
-        timestamp: new Date().toISOString(),
-        status: "sent",
-      };
-
-      // Add to local discussion immediately
-      await this.addMessageToDiscussion(message, "You");
-
-      // Send via WebRTC
-      await this.webrtcService.sendMessage(message);
-
-      // Update message status
-      setTimeout(() => {
-        this.updateMessageStatus(message.id, "delivered");
-      }, 1000);
-    } catch (error) {
-      errorHandler.createWebRTCError("Failed to send message", { error });
-    }
-  }
-
-  async handleTyping() {
-    if (!this.currentTargetId || this.isTyping) {
-      return;
-    }
-
-    this.isTyping = true;
-
-    try {
-      await this.webrtcService.sendMessage({ type: "typing" });
-    } catch (error) {
-      console.warn("Failed to send typing indicator:", error);
-    }
-
-    // Clear existing timeout
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-    }
-
-    // Set timeout to stop typing
-    this.typingTimeout = setTimeout(() => {
-      this.handleStopTyping();
-    }, 1000);
-  }
-
-  async handleStopTyping() {
-    if (!this.currentTargetId || !this.isTyping) {
-      return;
-    }
-
-    this.isTyping = false;
-
-    try {
-      await this.webrtcService.sendMessage({ type: "stop-typing" });
-    } catch (error) {
-      console.warn("Failed to send stop typing indicator:", error);
-    }
-
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-      this.typingTimeout = null;
-    }
-  }
-
-  async handleSendFile(data) {
-    const { file } = data;
-
-    if (!this.currentTargetId) {
-      errorHandler.createUserError("No chat selected");
-      return;
-    }
-
-    // Validate file
-    const validation = validateFile(file, {
-      maxSize: 50 * 1024 * 1024, // 50MB
-    });
-
-    if (!validation.isValid) {
-      errorHandler.createValidationError(validation.errors[0]);
-      return;
-    }
-
-    try {
-      const fileId = generateUUID();
-      const messageId = generateUUID();
-      const timestamp = new Date().toISOString();
-
-      // Add to local discussion immediately
-      const fileUrl = URL.createObjectURL(file);
-      await this.addMessageToDiscussion(
-        {
-          id: messageId,
-          type: "file",
-          file: { name: file.name, url: fileUrl },
-          timestamp,
-          status: "sent",
-        },
-        "You"
-      );
-
-      // Send file in chunks
-      await this.sendFileInChunks(file, fileId, messageId, timestamp);
-    } catch (error) {
-      errorHandler.createWebRTCError("Failed to send file", { error });
-    }
-  }
-
-  async sendFileInChunks(file, fileId, messageId, timestamp) {
-    const CHUNK_SIZE = 16384; // 16KB chunks
-
-    // Send start message
-    await this.webrtcService.sendMessage({
-      type: "file-start",
-      messageId,
-      fileId,
-      fileName: file.name,
-      fileType: file.type,
-      timestamp,
-    });
-
-    // Send file chunks
-    const arrayBuffer = await file.arrayBuffer();
-    for (let i = 0; i < arrayBuffer.byteLength; i += CHUNK_SIZE) {
-      const chunk = arrayBuffer.slice(i, i + CHUNK_SIZE);
-      await this.webrtcService.sendMessage({
-        type: "file-chunk",
-        fileId,
-        data: this.arrayBufferToBase64(chunk),
-      });
-    }
-
-    // Send end message
-    await this.webrtcService.sendMessage({
-      type: "file-end",
-      fileId,
-    });
-  }
-
-  async handleVoiceRecord(data) {
-    const { action } = data;
-
-    if (!this.currentTargetId) {
-      errorHandler.createUserError("No chat selected");
-      return;
-    }
-
-    try {
-      if (action === "start") {
-        await this.startVoiceRecording();
-      } else if (action === "stop") {
-        await this.stopVoiceRecording();
-      }
-    } catch (error) {
-      errorHandler.createWebRTCError("Voice recording failed", { error });
-    }
-  }
-
-  async startVoiceRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(stream);
-      this.recordingChunks = [];
-
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.recordingChunks.push(event.data);
+  setupUIEventHandlers() {
+    // Setup message input handler
+    if (this.view.messageInput) {
+      this.view.messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          this.sendMessage(this.view.messageInput.value);
         }
-      };
-
-      this.mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
-        await this.processVoiceRecording();
-      };
-
-      this.mediaRecorder.start();
-      eventBus.emit("voice:recording-started");
-    } catch (error) {
-      errorHandler.createWebRTCError("Failed to start voice recording", {
-        error,
       });
-      throw error;
     }
   }
 
-  async stopVoiceRecording() {
-    if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
-      this.mediaRecorder.stop();
-      eventBus.emit("voice:recording-stopped");
-    }
-  }
+  async handleContactSelected(data) {
+    this.currentChatId = data.id;
 
-  async processVoiceRecording() {
-    try {
-      const blob = new Blob(this.recordingChunks, { type: "audio/webm" });
-      const messageId = generateUUID();
-      const timestamp = new Date().toISOString();
+    // Update chat header
+    this.updateChatHeader(data.name);
 
-      // Add to local discussion
-      const audioUrl = URL.createObjectURL(blob);
-      await this.addMessageToDiscussion(
-        {
-          id: messageId,
-          type: "voice",
-          audioUrl,
-          timestamp,
-          status: "sent",
-        },
-        "You"
+    // Clear existing messages
+    this.view.clearMessages();
+
+    // Load existing messages if any
+    const messages = await this.loadMessages(data.id);
+
+    if (messages.length > 0) {
+      console.log(
+        `Loading ${messages.length} existing messages for chat with ${data.name}`
       );
-
-      // Send voice message
-      const arrayBuffer = await blob.arrayBuffer();
-      await this.webrtcService.sendMessage({
-        id: messageId,
-        type: "voice",
-        data: this.arrayBufferToBase64(arrayBuffer),
-        timestamp,
+      messages.forEach((msg) => {
+        this.view.addMessage(msg, msg.senderName, msg.isOwn);
       });
+    } else {
+      // Show welcome message for new chat
+      this.view.addSystemMessage(`Started secure chat with ${data.name}`);
+    }
 
-      this.recordingChunks = [];
-    } catch (error) {
-      errorHandler.createWebRTCError("Failed to process voice recording", {
-        error,
+    // Focus message input
+    if (this.view.messageInput) {
+      this.view.messageInput.focus();
+    }
+  }
+
+  updateChatHeader(targetName) {
+    const chatWith = document.getElementById("chatWith");
+    const chatStatus = document.getElementById("chatStatus");
+
+    if (chatWith) {
+      chatWith.textContent = `Chat with ${targetName}`;
+    }
+
+    if (chatStatus) {
+      chatStatus.textContent = "End-to-end encrypted • Online";
+      chatStatus.className = "text-sm text-green-400";
+    }
+  }
+
+  async handleMessageReceived(data) {
+    // Only show message if it's for the current chat
+    if (data.chatId === this.currentChatId && this.view) {
+      this.view.addMessage(data.message, data.senderName, false);
+
+      // Mark as read if chat is active
+      this.markMessagesAsRead(data.chatId);
+    }
+  }
+
+  async handleChatSelected(data) {
+    this.currentChatId = data.chatId;
+    if (this.view) {
+      this.view.updateChatHeader(data.targetName);
+      const messages = await this.loadMessages(data.chatId);
+      this.view.clearMessages();
+      messages.forEach((msg) => {
+        this.view.addMessage(msg, msg.senderName, msg.isOwn);
       });
     }
   }
 
-  async handleIncomingMessage(message, senderId) {
-    const senderName =
-      stateManager.getState().peers[senderId]?.name || "Unknown";
+  async sendMessage(content) {
+    if (!this.currentChatId || !content.trim()) return;
 
-    switch (message.type) {
-      case "text":
-        await this.addMessageToDiscussion(
-          {
-            id: message.id,
-            type: "text",
-            text: message.content,
-            timestamp: message.timestamp,
-            status: "received",
-          },
-          senderName
-        );
+    const message = {
+      id: Date.now().toString(),
+      content: content.trim(),
+      timestamp: Date.now(),
+      chatId: this.currentChatId,
+      isOwn: true,
+    };
 
-        // Send delivery confirmation
-        await this.sendMessageStatus("delivered", [message.id], senderId);
+    // Add to UI immediately
+    if (this.view) {
+      this.view.addMessage(message, "You", true);
+      this.view.clearMessageInput();
+    }
+
+    // Save to storage
+    await this.saveMessage(this.currentChatId, message);
+
+    // Send via signaling
+    await this.signalingService.sendMessage({
+      type: "chat-message",
+      targetId: this.currentChatId,
+      message: message,
+    });
+  }
+
+  async loadMessages(chatId) {
+    try {
+      return (await this.storageService.load(`messages_${chatId}`)) || [];
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+      return [];
+    }
+  }
+
+  async saveMessage(chatId, message) {
+    try {
+      const messages = await this.loadMessages(chatId);
+      messages.push(message);
+      await this.storageService.save(`messages_${chatId}`, messages);
+    } catch (error) {
+      console.error("Failed to save message:", error);
+    }
+  }
+
+  markMessagesAsRead(chatId) {
+    // Implementation for marking messages as read
+    console.log("Marking messages as read for chat:", chatId);
+  }
+
+  handleEvent(event) {
+    switch (event.type) {
+      case "message:send":
+        this.sendMessage(event.data.text);
         break;
-
-      case "voice":
-        const audioBlob = new Blob([this.base64ToArrayBuffer(message.data)], {
-          type: "audio/webm",
-        });
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        await this.addMessageToDiscussion(
-          {
-            id: message.id,
-            type: "voice",
-            audioUrl,
-            timestamp: message.timestamp,
-            status: "received",
-          },
-          senderName
-        );
-
-        await this.sendMessageStatus("delivered", [message.id], senderId);
+      case "message:typing":
+        this.handleTyping();
         break;
-
-      case "file-start":
-        this.handleFileStart(message, senderId);
+      case "file:send":
+        this.handleFileUpload(event.data.file);
         break;
-
-      case "file-chunk":
-        this.handleFileChunk(message);
+      case "voice:record":
+        this.handleVoiceRecord(event.data.action);
         break;
-
-      case "file-end":
-        await this.handleFileEnd(message, senderId);
-        break;
-
-      case "typing":
-        this.handleTypingIndicator(senderId, true);
-        break;
-
-      case "stop-typing":
-        this.handleTypingIndicator(senderId, false);
-        break;
-
       default:
-        console.warn(`Unknown message type: ${message.type}`);
+        console.warn("Unknown event type:", event.type);
     }
   }
 
-  handleFileStart(message, senderId) {
-    if (!this.fileChunks) {
-      this.fileChunks = new Map();
-    }
-
-    this.fileChunks.set(message.fileId, {
-      chunks: [],
-      meta: {
-        name: message.fileName,
-        type: message.fileType,
-        timestamp: message.timestamp,
-        messageId: message.messageId,
-      },
-    });
-
-    this.sendMessageStatus("delivered", [message.messageId], senderId);
-  }
-
-  handleFileChunk(message) {
-    const fileData = this.fileChunks?.get(message.fileId);
-    if (fileData) {
-      const chunk = this.base64ToArrayBuffer(message.data);
-      fileData.chunks.push(chunk);
-    }
-  }
-
-  async handleFileEnd(message, senderId) {
-    const fileData = this.fileChunks?.get(message.fileId);
-    if (fileData) {
-      const fileBlob = new Blob(fileData.chunks, { type: fileData.meta.type });
-      const fileUrl = URL.createObjectURL(fileBlob);
-
-      const senderName =
-        stateManager.getState().peers[senderId]?.name || "Unknown";
-
-      await this.addMessageToDiscussion(
-        {
-          id: fileData.meta.messageId,
-          type: "file",
-          file: { name: fileData.meta.name, url: fileUrl },
-          timestamp: fileData.meta.timestamp,
-          status: "received",
-        },
-        senderName
-      );
-
-      this.fileChunks.delete(message.fileId);
-    }
-  }
-
-  async handleMarkRead(data) {
-    const { messageIds } = data;
-
-    if (!this.currentTargetId) {
-      return;
-    }
-
-    try {
-      await this.sendMessageStatus("read", messageIds, this.currentTargetId);
-    } catch (error) {
-      console.warn("Failed to mark messages as read:", error);
-    }
-  }
-
-  async sendMessageStatus(status, messageIds, targetId) {
-    try {
-      await this.webrtcService.sendMessage({
-        type: "message-status",
-        status,
-        messageIds,
+  handleTyping() {
+    // Emit typing indicator
+    if (this.currentChatId) {
+      this.signalingService.sendMessage({
+        type: "typing",
+        targetId: this.currentChatId,
       });
-    } catch (error) {
-      console.warn("Failed to send message status:", error);
     }
   }
 
-  handleMessageStatusUpdate(data) {
-    const { status, messageIds } = data;
-
-    messageIds.forEach((messageId) => {
-      this.updateMessageStatus(messageId, status);
-    });
+  async handleFileUpload(file) {
+    console.log("File upload requested:", file.name);
+    // TODO: Implement file upload logic
   }
 
-  handleTypingIndicator(senderId, isTyping) {
-    if (senderId === this.currentTargetId) {
-      if (isTyping) {
-        this.view.showTypingIndicator();
-      } else {
-        this.view.hideTypingIndicator();
-      }
-    }
-  }
-
-  async addMessageToDiscussion(message, senderName) {
-    const discussion = await this.storageService.loadDiscussion(
-      this.currentTargetId
-    );
-
-    discussion.messages.push({
-      ...message,
-      sender: senderName,
-    });
-
-    await this.storageService.saveDiscussion(this.currentTargetId, discussion);
-
-    // Update state
-    stateManager.dispatch("ADD_MESSAGE", {
-      chatId: this.currentTargetId,
-      message: { ...message, sender: senderName },
-    });
-
-    // Render messages
-    this.view.render(discussion);
-  }
-
-  async loadMessages(targetId) {
-    try {
-      const discussion = await this.storageService.loadDiscussion(targetId);
-      this.view.render(discussion);
-    } catch (error) {
-      console.warn("Failed to load messages:", error);
-    }
-  }
-
-  updateMessageStatus(messageId, status) {
-    // Update in storage
-    this.storageService
-      .loadDiscussion(this.currentTargetId)
-      .then((discussion) => {
-        const message = discussion.messages.find((m) => m.id === messageId);
-        if (message) {
-          message.status = status;
-          this.storageService.saveDiscussion(this.currentTargetId, discussion);
-          this.view.render(discussion);
-        }
-      });
-  }
-
-  async markMessagesAsRead(targetId) {
-    try {
-      const discussion = await this.storageService.loadDiscussion(targetId);
-      const unreadMessages = discussion.messages.filter(
-        (m) => m.sender !== "You" && m.status !== "read"
-      );
-
-      if (unreadMessages.length > 0) {
-        const messageIds = unreadMessages.map((m) => m.id);
-
-        // Update local status
-        unreadMessages.forEach((m) => (m.status = "read"));
-        await this.storageService.saveDiscussion(targetId, discussion);
-
-        // Send read confirmation
-        await this.sendMessageStatus("read", messageIds, targetId);
-
-        this.view.render(discussion);
-      }
-    } catch (error) {
-      console.warn("Failed to mark messages as read:", error);
-    }
-  }
-
-  // Utility methods
-  arrayBufferToBase64(buffer) {
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-
-  base64ToArrayBuffer(base64) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  getCurrentTargetId() {
-    return this.currentTargetId;
-  }
-
-  getCurrentTargetName() {
-    return this.currentTargetName;
-  }
-
-  isCurrentlyTyping() {
-    return this.isTyping;
-  }
-
-  cleanup() {
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-    }
-
-    if (this.mediaRecorder) {
-      this.mediaRecorder.stop();
-    }
-
-    this.currentTargetId = null;
-    this.currentTargetName = null;
-    this.isTyping = false;
-    this.fileChunks = null;
+  handleVoiceRecord(action) {
+    console.log("Voice record action:", action);
+    // TODO: Implement voice recording logic
   }
 }

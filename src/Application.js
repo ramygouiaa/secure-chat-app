@@ -21,6 +21,7 @@ import { CallController } from "./ui/controllers/CallController.js";
 
 // Views
 import { ContactListView } from "./ui/views/ContactListView.js";
+import { ChatView } from "./ui/views/ChatView.js";
 
 // Utils
 import { validateUsername } from "./utils/validators.js";
@@ -116,27 +117,47 @@ export class Application {
 
   async initializeControllers() {
     try {
-      const webrtcService = this.services.get("webrtc");
+      // Get services for dependency injection
+      const encryptionService = this.services.get("encryption");
       const storageService = this.services.get("storage");
+      const signalingService = this.services.get("signaling");
+      const webrtcService = this.services.get("webrtc");
 
-      // Initialize controllers
-      const chatController = new ChatController(webrtcService, storageService);
-      this.controllers.set("chat", chatController);
+      // Initialize controllers with proper dependencies
+      const chatController = new ChatController(
+        encryptionService,
+        storageService,
+        signalingService
+      );
 
       const callController = new CallController(webrtcService, storageService);
+
+      // Register controllers
+      this.controllers.set("chat", chatController);
       this.controllers.set("call", callController);
+
+      // Initialize all controllers
+      for (const [name, controller] of this.controllers) {
+        console.log(`Initializing ${name} controller...`);
+        await controller.initialize();
+      }
 
       console.log("All controllers initialized successfully");
     } catch (error) {
-      errorHandler.handleError(error, "SYSTEM_ERROR", {
-        context: "Controller initialization",
-      });
+      console.error("Failed to initialize controllers:", error);
       throw error;
     }
   }
 
   initializeViews() {
     this.views.set("contacts", new ContactListView());
+    this.views.set("chat", new ChatView());
+
+    // Initialize chat controller with view
+    const chatController = this.controllers.get("chat");
+    if (chatController) {
+      chatController.view = this.views.get("chat");
+    }
   }
 
   setupEventHandlers() {
@@ -198,9 +219,7 @@ export class Application {
 
   setupUIEventHandlers() {
     // DOM event handlers
-    document.addEventListener("DOMContentLoaded", () => {
-      this.setupDOMEventHandlers();
-    });
+    this.setupDOMEventHandlers();
 
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
     window.addEventListener("beforeunload", this.handleBeforeUnload);
@@ -427,7 +446,14 @@ export class Application {
       connectionStatus: "connected",
     });
 
-    // Update UI
+    // Update UI connection status
+    const connectionStatus = document.getElementById("connectionStatus");
+    if (connectionStatus) {
+      connectionStatus.textContent = "Connected";
+      connectionStatus.className = "font-medium text-green-400";
+    }
+
+    // Update client ID display
     const clientIdDisplay = document.getElementById("clientIdDisplay");
     if (clientIdDisplay) {
       clientIdDisplay.textContent = data.id;
@@ -437,6 +463,12 @@ export class Application {
     if (this.userName) {
       this.registerUser();
     }
+
+    // Show success notification
+    eventBus.emit("notification:show", {
+      message: "Successfully connected to server",
+      type: "success",
+    });
   }
 
   handlePeerList(data) {
@@ -448,9 +480,24 @@ export class Application {
     });
 
     stateManager.setState({ peers });
+
+    // Update contact list view
     const contactListView = this.views.get("contacts");
     if (contactListView) {
       contactListView.render(data.peers, this.clientId);
+    }
+
+    // Show notification for new peers
+    const currentPeerCount = Object.keys(
+      stateManager.getState().peers || {}
+    ).length;
+    const newPeerCount = Object.keys(peers).length;
+
+    if (newPeerCount > currentPeerCount) {
+      eventBus.emit("notification:show", {
+        message: "New user joined the chat",
+        type: "info",
+      });
     }
   }
 
@@ -492,10 +539,40 @@ export class Application {
   }
 
   handleContactSelected(data) {
+    // Update current chat state
+    stateManager.setState({
+      currentChat: {
+        id: data.id,
+        name: data.name,
+      },
+    });
+
+    // Update chat header
+    const chatWith = document.getElementById("chatWith");
+    const chatStatus = document.getElementById("chatStatus");
+
+    if (chatWith) {
+      chatWith.textContent = `Chat with ${data.name}`;
+    }
+
+    if (chatStatus) {
+      chatStatus.textContent = "End-to-end encrypted";
+      chatStatus.className = "text-sm text-green-400";
+    }
+
+    // Initialize chat controller with selected contact
     const chatController = this.controllers.get("chat");
     if (chatController) {
-      chatController.render(data);
+      chatController.handleContactSelected(data);
     }
+
+    // Close sidebar on mobile after selection
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && window.innerWidth < 768) {
+      sidebar.classList.add("hidden");
+    }
+
+    console.log(`Chat initiated with: ${data.name} (${data.id})`);
   }
 
   handleSearchContacts(data) {
@@ -535,7 +612,10 @@ export class Application {
     }
 
     // Get user name
-    this.promptForUserName();
+    // Use a timeout to allow the UI to update before showing the prompt
+    setTimeout(() => {
+      this.promptForUserName();
+    }, 100);
   }
 
   async promptForUserName() {
@@ -571,8 +651,10 @@ export class Application {
       user: { name: userName },
     });
 
-    // Register with server if connected
-    if (this.clientId) {
+    // Initialize signaling and register user
+    const signalingService = this.services.get("signaling");
+    if (signalingService) {
+      await signalingService.initialize();
       this.registerUser();
     }
   }
@@ -581,6 +663,14 @@ export class Application {
     const signalingService = this.services.get("signaling");
     if (signalingService && this.userName) {
       signalingService.register(this.userName);
+
+      // Update UI with user name
+      const displayName = document.getElementById("displayName");
+      if (displayName) {
+        displayName.textContent = this.userName;
+      }
+
+      console.log(`User registered: ${this.userName}`);
     }
   }
 
@@ -777,34 +867,44 @@ export class Application {
   }
 
   showNotification(data) {
-    const notification = document.getElementById("notification");
-    if (!notification) return;
+    // Create notification element
+    const notification = document.createElement("div");
+    notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+      data.type === "success"
+        ? "bg-green-600"
+        : data.type === "error"
+        ? "bg-red-600"
+        : data.type === "warning"
+        ? "bg-yellow-600"
+        : "bg-blue-600"
+    } text-white`;
 
-    const { message, type = "info" } = data;
+    notification.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas fa-${
+          data.type === "success"
+            ? "check-circle"
+            : data.type === "error"
+            ? "exclamation-circle"
+            : data.type === "warning"
+            ? "exclamation-triangle"
+            : "info-circle"
+        } mr-2"></i>
+        <span>${data.message}</span>
+      </div>
+    `;
 
-    notification.textContent = message;
-    notification.className =
-      "fixed top-0 left-0 right-0 p-4 text-white text-center z-50";
+    document.body.appendChild(notification);
 
-    switch (type) {
-      case "error":
-        notification.classList.add("bg-red-600");
-        break;
-      case "warning":
-        notification.classList.add("bg-yellow-600");
-        break;
-      case "success":
-        notification.classList.add("bg-green-600");
-        break;
-      default:
-        notification.classList.add("bg-blue-600");
-    }
-
-    notification.classList.remove("hidden");
-
+    // Auto remove after 3 seconds
     setTimeout(() => {
-      notification.classList.add("hidden");
-    }, appConfig.get("ui.notificationTimeout"));
+      notification.style.opacity = "0";
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   // Utility methods

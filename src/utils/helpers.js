@@ -16,16 +16,36 @@ export function generateId() {
  * @returns {string} UUID
  */
 export function generateUUID() {
-  if (crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  
-  // Fallback for older browsers
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+export function validateMessage(content) {
+  if (!content || typeof content !== "string") {
+    return { isValid: false, error: "Message content is required" };
+  }
+
+  if (content.trim().length === 0) {
+    return { isValid: false, error: "Message cannot be empty" };
+  }
+
+  if (content.length > 1000) {
+    return { isValid: false, error: "Message too long" };
+  }
+
+  return {
+    isValid: true,
+    sanitized: content
+      .trim()
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ""),
+  };
+}
+
+export function formatTimestamp(timestamp) {
+  return new Date(timestamp).toLocaleTimeString();
 }
 
 /**
@@ -54,11 +74,11 @@ export function debounce(func, wait) {
  */
 export function throttle(func, limit) {
   let inThrottle;
-  return function(...args) {
+  return function (...args) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => (inThrottle = false), limit);
     }
   };
 }
@@ -69,19 +89,19 @@ export function throttle(func, limit) {
  * @returns {any} Cloned object
  */
 export function deepClone(obj) {
-  if (obj === null || typeof obj !== 'object') {
+  if (obj === null || typeof obj !== "object") {
     return obj;
   }
-  
+
   if (obj instanceof Date) {
     return new Date(obj.getTime());
   }
-  
+
   if (obj instanceof Array) {
-    return obj.map(item => deepClone(item));
+    return obj.map((item) => deepClone(item));
   }
-  
-  if (typeof obj === 'object') {
+
+  if (typeof obj === "object") {
     const cloned = {};
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
@@ -90,7 +110,7 @@ export function deepClone(obj) {
     }
     return cloned;
   }
-  
+
   return obj;
 }
 
@@ -102,8 +122,8 @@ export function deepClone(obj) {
 export function formatTime(timestamp) {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -126,20 +146,20 @@ export function formatRelativeTime(timestamp) {
   const now = new Date();
   const date = new Date(timestamp);
   const diff = now.getTime() - date.getTime();
-  
+
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (days > 0) {
-    return `${days} day${days > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? "s" : ""} ago`;
   } else if (hours > 0) {
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${hours} hour${hours > 1 ? "s" : ""} ago`;
   } else if (minutes > 0) {
-    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
   } else {
-    return 'Just now';
+    return "Just now";
   }
 }
 
@@ -152,11 +172,13 @@ export function formatDuration(seconds) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
-  
+
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
   } else {
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   }
 }
 
@@ -166,13 +188,13 @@ export function formatDuration(seconds) {
  * @returns {string} Formatted file size
  */
 export function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  
+  if (bytes === 0) return "0 Bytes";
+
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 /**
@@ -205,7 +227,7 @@ export function isValidUrl(url) {
  * @returns {string} Sanitized HTML
  */
 export function sanitizeHtml(html) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = html;
   return div.innerHTML;
 }
@@ -216,7 +238,7 @@ export function sanitizeHtml(html) {
  * @returns {string} Escaped text
  */
 export function escapeHtml(text) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
@@ -227,7 +249,7 @@ export function escapeHtml(text) {
  * @returns {string} File extension
  */
 export function getFileExtension(filename) {
-  return filename.split('.').pop().toLowerCase();
+  return filename.split(".").pop().toLowerCase();
 }
 
 /**
@@ -237,18 +259,18 @@ export function getFileExtension(filename) {
  */
 export function getFileType(filename) {
   const extension = getFileExtension(filename);
-  
-  const imageTypes = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
-  const videoTypes = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'];
-  const audioTypes = ['mp3', 'wav', 'ogg', 'flac', 'aac'];
-  const documentTypes = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
-  
-  if (imageTypes.includes(extension)) return 'image';
-  if (videoTypes.includes(extension)) return 'video';
-  if (audioTypes.includes(extension)) return 'audio';
-  if (documentTypes.includes(extension)) return 'document';
-  
-  return 'other';
+
+  const imageTypes = ["jpg", "jpeg", "png", "gif", "svg", "webp"];
+  const videoTypes = ["mp4", "avi", "mov", "wmv", "flv", "webm"];
+  const audioTypes = ["mp3", "wav", "ogg", "flac", "aac"];
+  const documentTypes = ["pdf", "doc", "docx", "txt", "rtf"];
+
+  if (imageTypes.includes(extension)) return "image";
+  if (videoTypes.includes(extension)) return "video";
+  if (audioTypes.includes(extension)) return "audio";
+  if (documentTypes.includes(extension)) return "document";
+
+  return "other";
 }
 
 /**
@@ -257,7 +279,7 @@ export function getFileType(filename) {
  * @returns {string} Base64 string
  */
 export function arrayBufferToBase64(buffer) {
-  let binary = '';
+  let binary = "";
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
@@ -286,7 +308,11 @@ export function base64ToArrayBuffer(base64) {
  * @returns {boolean} WebRTC support
  */
 export function supportsWebRTC() {
-  return !!(window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+  return !!(
+    window.RTCPeerConnection ||
+    window.webkitRTCPeerConnection ||
+    window.mozRTCPeerConnection
+  );
 }
 
 /**
@@ -317,7 +343,9 @@ export function getDeviceCapabilities() {
  * @returns {boolean} Is mobile device
  */
 export function isMobileDevice() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
 }
 
 /**
@@ -326,14 +354,14 @@ export function isMobileDevice() {
  */
 export function getBrowserInfo() {
   const ua = navigator.userAgent;
-  let browser = 'Unknown';
-  
-  if (ua.includes('Chrome')) browser = 'Chrome';
-  else if (ua.includes('Firefox')) browser = 'Firefox';
-  else if (ua.includes('Safari')) browser = 'Safari';
-  else if (ua.includes('Edge')) browser = 'Edge';
-  else if (ua.includes('Opera')) browser = 'Opera';
-  
+  let browser = "Unknown";
+
+  if (ua.includes("Chrome")) browser = "Chrome";
+  else if (ua.includes("Firefox")) browser = "Firefox";
+  else if (ua.includes("Safari")) browser = "Safari";
+  else if (ua.includes("Edge")) browser = "Edge";
+  else if (ua.includes("Opera")) browser = "Opera";
+
   return {
     name: browser,
     userAgent: ua,
@@ -348,7 +376,7 @@ export function getBrowserInfo() {
  * @returns {string} Random hex color
  */
 export function generateRandomColor() {
-  return '#' + Math.floor(Math.random()*16777215).toString(16);
+  return "#" + Math.floor(Math.random() * 16777215).toString(16);
 }
 
 /**
@@ -360,9 +388,9 @@ export function getContrastingColor(hexColor) {
   const r = parseInt(hexColor.substr(1, 2), 16);
   const g = parseInt(hexColor.substr(3, 2), 16);
   const b = parseInt(hexColor.substr(5, 2), 16);
-  
+
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 128 ? '#000000' : '#ffffff';
+  return brightness > 128 ? "#000000" : "#ffffff";
 }
 
 /**
@@ -377,20 +405,20 @@ export async function copyToClipboard(text) {
       return true;
     } else {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      const success = document.execCommand('copy');
+      const success = document.execCommand("copy");
       textArea.remove();
       return success;
     }
   } catch (error) {
-    console.error('Failed to copy text:', error);
+    console.error("Failed to copy text:", error);
     return false;
   }
 }
@@ -402,7 +430,7 @@ export async function copyToClipboard(text) {
  */
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -418,21 +446,21 @@ export function downloadBlob(blob, filename) {
  */
 export function playAudioWithLoop(audioElement, loopCount = 1) {
   let playedCount = 0;
-  
+
   const playHandler = () => {
     playedCount++;
     if (playedCount < loopCount) {
       audioElement.currentTime = 0;
       audioElement.play();
     } else {
-      audioElement.removeEventListener('ended', playHandler);
+      audioElement.removeEventListener("ended", playHandler);
     }
   };
-  
-  audioElement.addEventListener('ended', playHandler);
+
+  audioElement.addEventListener("ended", playHandler);
   audioElement.currentTime = 0;
-  audioElement.play().catch(error => {
-    console.error('Audio play failed:', error);
+  audioElement.play().catch((error) => {
+    console.error("Audio play failed:", error);
   });
 }
 

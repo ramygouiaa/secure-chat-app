@@ -36,7 +36,7 @@ export class AppConfig {
         connectionTimeout: 15000,
         chunkSize: 16384,
       },
-      
+
       // WebSocket Configuration
       websocket: {
         protocol: window.location.protocol === "https:" ? "wss:" : "ws:",
@@ -44,7 +44,7 @@ export class AppConfig {
         reconnectDelay: 3000,
         heartbeatInterval: 30000,
       },
-      
+
       // Encryption Configuration
       encryption: {
         algorithm: "ECDH",
@@ -54,7 +54,7 @@ export class AppConfig {
         keyLength: 256,
         ivLength: 12,
       },
-      
+
       // UI Configuration
       ui: {
         notificationTimeout: 5000,
@@ -68,7 +68,7 @@ export class AppConfig {
           Offline: "bg-gray-500",
         },
       },
-      
+
       // Media Configuration
       media: {
         audio: {
@@ -81,53 +81,59 @@ export class AppConfig {
           frameRate: { min: 15, ideal: 30, max: 60 },
         },
       },
-      
+
       // Storage Configuration
       storage: {
         prefix: "securechat_",
         discussionKey: "discussion_",
         userKey: "user_",
       },
-      
-      // Development Configuration
-      development: {
-        enableDebugLogs: true,
-        enablePerformanceMetrics: true,
-      },
     };
   }
-  
+
   get(path) {
     return this.getNestedValue(this.config, path);
   }
-  
+
   set(path, value) {
     this.setNestedValue(this.config, path, value);
   }
-  
-  getNestedValue(obj, path) {
-    return path.split('.').reduce((current, key) => 
-      current && current[key] !== undefined ? current[key] : undefined, obj
+
+  // Add missing environment detection methods
+  isDevelopment() {
+    return (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.includes("dev")
     );
   }
-  
+
+  isProduction() {
+    return !this.isDevelopment();
+  }
+
+  getEnvironment() {
+    return this.isDevelopment() ? "development" : "production";
+  }
+
+  getNestedValue(obj, path) {
+    return path
+      .split(".")
+      .reduce(
+        (current, key) =>
+          current && current[key] !== undefined ? current[key] : undefined,
+        obj
+      );
+  }
+
   setNestedValue(obj, path, value) {
-    const keys = path.split('.');
+    const keys = path.split(".");
     const lastKey = keys.pop();
     const target = keys.reduce((current, key) => {
       if (!current[key]) current[key] = {};
       return current[key];
     }, obj);
     target[lastKey] = value;
-  }
-  
-  // Environment-specific configurations
-  isDevelopment() {
-    return process.env.NODE_ENV === 'development';
-  }
-  
-  isProduction() {
-    return process.env.NODE_ENV === 'production';
   }
 }
 
